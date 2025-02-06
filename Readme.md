@@ -1,6 +1,6 @@
 # BrightEyes-FFS-GUI
 
-A graphical user interfact for analysing Fluorescence Correlation Spectroscopy (FCS) and Fluorescence Fluctuation Spectroscopy (FFS) data with array detectors. Built upon the BrightEyes-FFS python package.
+A graphical user interfact for analysing Fluorescence Correlation Spectroscopy (FCS) and Fluorescence Fluctuation Spectroscopy (FFS) data with array detectors. Built upon the BrightEyes-FFS python package (https://github.com/VicidominiLab/BrightEyes-FFS).
 
 ----------------------------------
 
@@ -59,7 +59,7 @@ Use the read_ffs library for quick plotting of data stored in a session file:
 
 	from brighteyes_ffs.fcs_gui.read_ffs import read_ffs_file, read_g_from_ffs
 	g, tau, g_fit, tau_fit = read_g_from_ffs("myfile.ffs", read='active') # read the correlations and fits that were active at the moment of saving the session file
-	# Say the user has loaded 1 image, with two FCS files. The second FCS file contains three correlations, and the third correlation was fit four times
+	# Say the user has loaded 1 image, with two FCS files. The second FCS file contains three correlations, and the third correlation was fit four times, then you can load a specific correlation and fit as follows:
 	g, tau, g_fit, tau_fit = read_g_from_ffs("myfile.ffs", read=[0, 1, 2, 3]) # read the third fit for the second correlation curve for the first FCS file for the 0th image.
 	g = read_ffs_file("myfile.ffs", read='active', returnObj='G') # read the active correlation as an object
 
