@@ -6,7 +6,7 @@ A graphical user interfact for analysing Fluorescence Correlation Spectroscopy (
 
 ## Installation
 
-For running the executable (Windows), download the GUI from and run main.exe.
+For running the executable (Windows), download the GUI (https://doi.org/10.5281/zenodo.14826849) and run main.exe.
 
 For developers, (i) create a new venv and install the BrightEyes-FFS package (https://pypi.org/project/brighteyes-ffs/) using pip:
 
