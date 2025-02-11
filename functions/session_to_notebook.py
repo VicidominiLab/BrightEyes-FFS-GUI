@@ -10,7 +10,7 @@ def plot_session_in_notebook(ffs_path=r'D:\\brighteyes_saved_session.ffs', noteb
     cells = [
         nbf.v4.new_markdown_cell("# Generated Jupyter Notebook"),
         nbf.v4.new_markdown_cell("Import packages"),
-        nbf.v4.new_code_cell("""from brighteyes_ffs.fcs_gui.read_ffs import read_g_from_ffs, read_ffs_file, restorelib
+        nbf.v4.new_code_cell("""from brighteyes_ffs.fcs_gui.read_ffs import read_g_from_ffs, read_ffs_file, restorelib, read_fitresults_from_ffs
 import matplotlib.pyplot as plt
 import numpy as np"""),
         nbf.v4.new_markdown_cell("Load session from GUI"),
@@ -54,7 +54,10 @@ for i in range(np.shape(G)[1]):
 plt.ylim([0,np.max(G[1:,:])])
 plt.xlabel('Lag time (s)')
 plt.ylabel('G')
-plt.xscale('log')""")
+plt.xscale('log')"""),
+        nbf.v4.new_markdown_cell("Fit results"),
+        nbf.v4.new_code_cell("""print(read_fitresults_from_ffs(ffs_file))"""),
+        
     ]
 
     # Add the cells to the notebook

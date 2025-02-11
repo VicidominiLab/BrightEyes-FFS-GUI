@@ -871,7 +871,6 @@ def plot_fingerprint(self, fp):
     if len(fp) == 32:
         #ax.set_facecolor("black")
         #self.ui.fingerprint_widget.canvas.axes.set_facecolor(change_color_from_map(ap("subtlecol"))
-        
         s, hexb = plot_fingerprint_airyscan(np.abs(fp), plot=False)
         self.ui.fingerprint_widget.canvas.axes.hexbin(s[1], s[0], C=hexb, gridsize=[6,5], cmap=change_color_from_map('inferno', ap("bgcol")))
         self.ui.fingerprint_widget.canvas.axes.set_xlim([-0.5,5.5])
@@ -1073,13 +1072,23 @@ def calc_g_new_thread(self, file, anSettings):
                 averaging.append([els[i], avs[i]])
         else:
             averaging = None
-        [G, data] = fcs_sparse_matrices(fname=file.fname,
-                                      accuracy=anSettings.resolution,
-                                      split=anSettings.chunksize,
-                                      time_trace=True,
-                                      return_obj=True,
-                                      averaging=averaging,
-                                      root=self)
+        # [G, data] = fcs_sparse_matrices(fname=file.fname,
+        #                               accuracy=anSettings.resolution,
+        #                               split=anSettings.chunksize,
+        #                               time_trace=True,
+        #                               return_obj=True,
+        #                               averaging=averaging,
+        #                               root=self)
+        [G, data] = fcs_load_and_corr_split(file.fname,
+                                        list_of_g=anSettings.list_of_g,
+                                        accuracy=anSettings.resolution,
+                                        split=anSettings.chunksize,
+                                        time_trace=True,
+                                        metadata=file.metadata,
+                                        root=self,
+                                        averaging=anSettings.average,
+                                        list_of_g_out=anSettings.elements,
+                                        algorithm="sparse_matrices")
             
     else:
         [G, data] = fcs_load_and_corr_split(file.fname,
@@ -1330,26 +1339,13 @@ def perform_fit(self, updateAll=False):
         
         if fitmodel.model == 'Mean squared displacement':
             print('Mean squared displacement')
-            try:
-                Gsingle = analysis.get_corr('V0_H0')
-            except:
+            G3d, tau = analysis.get_corr3D()
+            if G3d is None:
                 showdialog('Warning', 'Not all correlations found.', 'Calculate all cross-correlations to use MSD analysis.')
                 return
-            tau = Gsingle[:,0]
-            N = 5
-            G3d = np.zeros((len(tau), N, N))
-            for i in range(N):
-                for j in range(N):
-                    try:
-                        G = analysis.get_corr('V' + str(j-N//2) + '_H' + str(i-N//2))
-                        G3d[:, j, i] = G[:,1]
-                    except:
-                        showdialog('Warning', 'Not all correlations found.', 'Calculate all cross-correlations to use MSD analysis.')
-                        return
-            
             minb = fit.minbound
             maxb = fit.maxbound
-            var, tau, fitres = fcs2imsd(G3d[start:stop,:,:], tau[start:stop], farr[0:-1], startv, minb, maxb, remove_outliers=True)
+            var, tau, fitres = fcs2imsd(G3d[start:stop,:,:], tau[start:stop], farr[0:-1], startv, minb, maxb, remove_outliers=False)
             for f in range(len(allfits)):
                 # get data
                 fit = allfits[f]
