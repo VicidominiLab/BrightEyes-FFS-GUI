@@ -186,7 +186,7 @@ for corr in list_of_g_out:
     fitresult = fcs_fit(Gexp, tau, my_fit_fun, fit_info, param, lBounds, uBounds, plotInfo=-1)
     fitresults.append(fitresult)"""),
     nbf.v4.new_code_cell("""plt.figure()
-for i, corr in enumerate(list_of_g):
+for i, corr in enumerate(list_of_g_out):
     # plot correlation
     Gsingle = getattr(G, corr + '_averageX')
     plt.scatter(Gsingle[""" + fitstart + """:""" + fitstop + """,0], Gsingle[""" + fitstart + """:""" + fitstop + """,1], s=4, label=corr)
@@ -199,11 +199,11 @@ plt.ylabel('G')
 plt.xscale('log')"""),
             ]
 
-    if fit_obj_single.fitfunction_label == 'Asymmetry heat map':
-        cells += [
-        nbf.v4.new_markdown_cell("Asymmetry heat map"),
-        nbf.v4.new_code_cell("""from brighteyes_ffs.fcs.fcs_polar import g2polar""" ),
-        nbf.v4.new_code_cell("""num_curves = len(list_of_g_out)
+        if fit_obj_single.fitfunction_label == 'Asymmetry heat map':
+            cells += [
+            nbf.v4.new_markdown_cell("Asymmetry heat map"),
+            nbf.v4.new_code_cell("""from brighteyes_ffs.fcs.fcs_polar import g2polar""" ),
+            nbf.v4.new_code_cell("""num_curves = len(list_of_g_out)
 if num_curves == 4:
     columnorder = ['Right', 'Up', 'Left', 'Down'] # square array detector
 elif num_curves == 6:
