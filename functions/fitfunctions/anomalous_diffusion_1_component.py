@@ -10,7 +10,7 @@ def get_params():
         # N, tau1, tau2, F, alpha, T, tautrip, SP, offset, A, B
         "allparamDefvalues"    : [-1, -1, -1, -1, -1],
         "paramFactors10"       : [1, 1e-3, 1, 1, 1],
-        "paramMinbound"        : [0, 1e-5, 5e-2, 0, 0],
+        "paramMinbound"        : [0, 1e-6, 5e-2, 0, 0],
         "paramMaxbound"        : [1e6, 1000, 1000, 1e6, 1000],
         "fitfunctionName"      : fitfun_an,
         "fitfunctionParamUsed" : [0, 1, 2, 3, 4]

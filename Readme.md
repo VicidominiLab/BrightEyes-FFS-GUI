@@ -44,6 +44,8 @@ Scroll through the time trace and check the correlation curves for each chunk. R
 
 There are several *special* types of analysis, which are not simply fitting curves to a model. These include *Asymmetry heat map*, which requires the *Asymmetric diffusion analysis* in the *Calculate correlations* panel first, and *Flow heat map*, which requires the calculation of *Cross-correlation for flow analysis*.
 
+Check the pdf document under files to get more information on the fit models.
+
 ### Step 5: Plotting the diffusion law
 
 Enter the values for the beam waist or *D* in the *Diffusion analysis* panel, and click on *Update*.
