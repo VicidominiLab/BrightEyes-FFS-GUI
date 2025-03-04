@@ -431,6 +431,8 @@
     <addaction name="actionSave_session"/>
     <addaction name="actionSave_session_as"/>
     <addaction name="actionNew_session"/>
+    <addaction name="separator"/>
+    <addaction name="actionExport_results_to_Excel"/>
    </widget>
    <widget class="QMenu" name="menuCalculate">
     <property name="title">
@@ -1596,6 +1598,11 @@
   <action name="actionPlot_in_Jupyter_Notebook">
    <property name="text">
     <string>Plot in Jupyter Notebook</string>
+   </property>
+  </action>
+  <action name="actionExport_results_to_Excel">
+   <property name="text">
+    <string>Export results to Excel</string>
    </property>
   </action>
  </widget>

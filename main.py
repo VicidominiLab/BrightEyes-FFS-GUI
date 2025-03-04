@@ -123,10 +123,11 @@ from functions.session_to_notebook import convert_session_to_notebook, plot_sess
 from functions.button_label import button_label
 
 from brighteyes_ffs.fcs_gui.load_ffs_metadata import load_ffs_metadata
-from brighteyes_ffs.fcs_gui.restore_session import savelib, restorelib
+from brighteyes_ffs.fcs_gui.restore_session import savelib, restorelib, save_ffs
 from brighteyes_ffs.fcs_gui.timetrace_end import timetrace_end
+from brighteyes_ffs.fcs_gui.session_to_excel import lib2excel
 
-from brighteyes_ffs.fcs.fcs2corr import fcs_load_and_corr_split, fcs_sparse_matrices, Correlations
+from brighteyes_ffs.fcs.fcs2corr import fcs_load_and_corr_split, Correlations
 from brighteyes_ffs.fcs.get_det_elem_from_array import get_elsum
 from brighteyes_ffs.fcs.fcs_fit import fcs_fit
 from brighteyes_ffs.fcs.fcs2difftime import g2difftime
@@ -936,7 +937,15 @@ def exportlib(self, dummy=0, filename=''):
     self.finishedG = True
     if fname is not None:
         self.filePath = fname
-    
+
+def exportlib_xlsx(self):
+    fname = save_ffs(window_title='Export fit results as', ftype='*.xlsx', directory='')
+    if fname is None:
+        return
+    if not fname.endswith('.xlsx'):
+        fname = fname + '.xlsx'
+    lib2excel(self.ffslib, fname)
+
 def clean_session(self):
     default_settings(self)
     update_buttons(self)
@@ -1708,6 +1717,8 @@ class BrightEyesFFS(QMainWindow):
         self.ui.actionSave_session_as.triggered.connect(self.save_session_as)
         self.ui.actionOpen_session.triggered.connect(self.open_session)
         self.ui.actionNew_session.triggered.connect(self.new_session)
+        self.ui.actionExport_results_to_Excel.triggered.connect(self.export_session_xlsx)
+        
         
         self.ui.actionCurrent_fit.triggered.connect(self.remove_current_fit)
         self.ui.actionCurrent_correlation.triggered.connect(self.remove_current_analysis)
@@ -2006,6 +2017,9 @@ class BrightEyesFFS(QMainWindow):
         renew = showdialog('Create new session', 'Are you sure you want to create a new session? Unsaved changes will get lost.', '')
         if renew:
             clean_session(self)
+    
+    def export_session_xlsx(self):
+        exportlib_xlsx(self)
     
     def calc_correlations(self, calc='all'):
         Nfiles = nrfiles(self)
