@@ -18,6 +18,7 @@ a = Analysis(
         ('mplwidgetcorrplot.py', '.'),       # Copies config.json to the 'config' folder
         ('mplwidgetdifflawplot.py', '.'),       # Copies config.json to the 'config' folder
         ('mplwidgetlineplot.py', '.'),       # Copies config.json to the 'config' folder
+		('mplwidgetfingerprint.py', '.'),       # Copies config.json to the 'config' folder
 		('files/ffs_icon.ico', 'files/ffs_icon.ico'),
 		('files/brighteyes_ffs_startup_splash.png', 'files/brighteyes_ffs_startup_splash.png'),
 		('files/Cells_DEKegfp_75x75um.jpg', 'files/Cells_DEKegfp_75x75um.jpg'),

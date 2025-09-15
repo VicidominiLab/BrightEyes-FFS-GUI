@@ -11,6 +11,7 @@ def plot_session_in_notebook(ffs_path=r'D:\\brighteyes_saved_session.ffs', noteb
         nbf.v4.new_markdown_cell("# Generated Jupyter Notebook"),
         nbf.v4.new_markdown_cell("Import packages"),
         nbf.v4.new_code_cell("""from brighteyes_ffs.fcs_gui.read_ffs import read_g_from_ffs, read_ffs_file, restorelib, read_fitresults_from_ffs
+from brighteyes_ffs.tools.color_from_map import color_from_map
 import matplotlib.pyplot as plt
 import numpy as np"""),
         nbf.v4.new_markdown_cell("Load session from GUI"),
@@ -46,17 +47,38 @@ a = an integer indicating which image number, usually 0
 b = an integer indicating which file to read  
 c = an integer indicating which correlation to read from that file  
 d = an integer indicating which fit to read from that correlation"""),
-        nbf.v4.new_code_cell("""G, tau, Gfit, taufit = read_g_from_ffs(ffs_file, read='active')"""),
+        nbf.v4.new_code_cell("""analysis = read_ffs_file(ffs_file, read='active', returnObj='analysis')
+algorithm = analysis.settings.algorithm
+G, tau, Gfit, taufit = read_g_from_ffs(ffs_file, read='active')"""),
         nbf.v4.new_code_cell("""plt.figure()
 for i in range(np.shape(G)[1]):
-    plt.scatter(tau, G[:,i],s=4)
-    plt.plot(taufit, Gfit[:,i])
-plt.ylim([0,np.max(G[1:,:])])
-plt.xlabel('Lag time (s)')
-plt.ylabel('G')
-plt.xscale('log')"""),
+    if algorithm == 'pch':
+        plt.bar(tau, G[:,i], alpha=0.5, color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'))
+    else:
+        plt.scatter(tau, G[:,i], s=20, alpha=0.5, color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'))
+    plt.plot(taufit, Gfit[:,i], color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'))
+
+if algorithm == 'pch':
+    plt.ylim([0,1.05*np.max(G[0:,:])])
+    plt.xlabel('Counts')
+    plt.ylabel('Relative frequency')
+    plt.xscale('linear')
+else:
+    plt.ylim([0,1.05*np.max(G[1:,:])])
+    plt.xlabel('Lag time (s)')
+    plt.ylabel('G')
+    plt.xscale('log')"""),
         nbf.v4.new_markdown_cell("Fit results"),
         nbf.v4.new_code_cell("""print(read_fitresults_from_ffs(ffs_file))"""),
+        nbf.v4.new_code_cell("""# For MEM analysis, use
+fitmem, tauD = read_fitresults_from_ffs(ffs_file)
+plt.figure()
+for i in range(len(fitmem)):
+    plt.scatter(tauD, fitmem[i], s=20, alpha=0.5, color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'))
+    plt.plot(tauD, fitmem[i], color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'))
+plt.xscale('log')
+plt.xlabel('Diffusion time (s)')
+plt.ylabel('Relative concentration')"""),
         
     ]
 

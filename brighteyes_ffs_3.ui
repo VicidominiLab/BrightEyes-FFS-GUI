@@ -194,7 +194,7 @@
          </spacer>
         </item>
         <item>
-         <widget class="MplWidget" name="fingerprint_widget" native="true">
+         <widget class="MplWidgetFingerPrint" name="fingerprint_widget" native="true">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
@@ -840,6 +840,11 @@
           <item>
            <property name="text">
             <string>TT2Corr</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>PCH</string>
            </property>
           </item>
          </widget>
@@ -1629,6 +1634,12 @@
    <class>MplWidgetDiffLawPlot</class>
    <extends>QWidget</extends>
    <header>mplwidgetdifflawplot.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>MplWidgetFingerPrint</class>
+   <extends>QWidget</extends>
+   <header>mplwidgetfingerprint.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

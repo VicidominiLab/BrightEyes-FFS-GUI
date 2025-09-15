@@ -152,7 +152,7 @@ def open_ffslib():
     else:
         return None
 
-def save_ffs(windowTitle='Save project as', ftype='*.ffs', directory=''):
+def save_ffs(windowTitle='Save project as', ftype='FFS Files (*.ffs)', directory=''):
     """
     Select name to save ffs lib
     ===========================================================================
@@ -166,15 +166,9 @@ def save_ffs(windowTitle='Save project as', ftype='*.ffs', directory=''):
     ===========================================================================
     """
     
-    dialog = QFileDialog()
-    dialog.setWindowTitle(windowTitle)
-    dialog.setNameFilter(ftype)
-    dialog.setDirectory(directory)
-    fname = QFileDialog.getSaveFileName()
-    
-    if fname[0] == '':
-        return None
-    return fname[0]
+    fname, _ = QFileDialog.getSaveFileName(None, windowTitle, directory, ftype)
+
+    return fname if fname else None
 
 def check_file_exists(file, defaultFolder=""):
     """

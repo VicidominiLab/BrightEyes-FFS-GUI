@@ -193,6 +193,20 @@ def list_of_fit_models():
         modelname = fitmodel.model
         fitmodels.append(modelname)
         
+        from functions.fitfunctions.pch_1_component import get_params
+        params = get_params()
+        fitmodel = FitModel()
+        fitmodel.set_params(params)
+        modelname = fitmodel.model
+        fitmodels.append(modelname)
+        
+        from functions.fitfunctions.pch_2_components import get_params
+        params = get_params()
+        fitmodel = FitModel()
+        fitmodel.set_params(params)
+        modelname = fitmodel.model
+        fitmodels.append(modelname)
+        
     else:
         files = list_files('functions/fitfunctions/', 'py')
         for f in files:
@@ -362,6 +376,22 @@ def get_fit_model_from_name(name):
             return fitmodel
         
         from functions.fitfunctions.uncoupled_reaction_diffusion import get_params
+        params = get_params()
+        fitmodel = FitModel()
+        fitmodel.set_params(params)
+        modelname = fitmodel.model
+        if name == modelname:
+            return fitmodel
+        
+        from functions.fitfunctions.pch_1_component import get_params
+        params = get_params()
+        fitmodel = FitModel()
+        fitmodel.set_params(params)
+        modelname = fitmodel.model
+        if name == modelname:
+            return fitmodel
+        
+        from functions.fitfunctions.pch_2_components import get_params
         params = get_params()
         fitmodel = FitModel()
         fitmodel.set_params(params)
