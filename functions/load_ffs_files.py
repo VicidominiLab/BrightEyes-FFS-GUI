@@ -122,7 +122,7 @@ def open_ffs(fname=''):
     ===========================================================================
     """
     
-    ftype = "FFS file (*.bin *.h5 *.tiff *.tif *.czi *.csv)"
+    ftype = "FFS file (*.bin *.h5 *.hdf5 *.tiff *.tif *.czi *.csv *.ptu)"
     fname = open_dialog('Select FFS file ' + fname, ftype, '/')
     
     if fname != "":

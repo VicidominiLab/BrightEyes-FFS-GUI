@@ -5,6 +5,11 @@ def get_params(det_type='Square 5x5'):
         listOfG = ['crossAll']
         average = ['12x12', '12x7+12x11+12x13+12x17', '12x6+12x8+12x16+12x18', '12x2+12x10+12x14+12x22', '12x1+12x3+12x5+12x9+12x15+12x19+12x21+12x23', '12x0+12x4+12x20+12x24']
     
+    elif det_type == 'PDA-23':
+        elements = ['s0', 's1', 's2']
+        listOfG = ['x2020', 'x2015', 'x2016', 'x2019', 'x2021', 'x2024', 'x2025', 'x2012', 'x2010', 'x2018', 'x2022', 'x2028', 'x2030']
+        average = ['20x20', '20x15+20x16+20x19+20x21+20x24+20x25', '20x12+20x10+20x18+20x22+20x28+20x30']
+    
     else:
         # airyscan
         elements = ['s1', 's2', 's3', 's4']

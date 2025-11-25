@@ -9,6 +9,7 @@ class MplWidgetLinePlot(QWidget):
     copyBadChunks = pyqtSignal()
     turnOffBadChunks = pyqtSignal()
     turnOnAllChunks = pyqtSignal()
+    filterBadChunks = pyqtSignal()
     
     def __init__(self, parent = None):
 
@@ -38,6 +39,10 @@ class MplWidgetLinePlot(QWidget):
 
     def show_context_menu(self, event):
         menu = QMenu(self)
+
+        action0 = QAction("Filter out bad chunks (beta)", self)
+        action0.triggered.connect(lambda: self.filterBadChunks.emit())
+        menu.addAction(action0)
 
         action1 = QAction("Copy list of bad chunks", self)
         action1.triggered.connect(lambda: self.copyBadChunks.emit())

@@ -1,4 +1,4 @@
-def get_params(det_type='Genoa Instruments 5x5'):
+def get_params(det_type='Square 5x5'):
     return {
         "mode"       : 'Single-element fcs',
         "elements"   : ['auto'],

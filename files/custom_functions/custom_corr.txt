@@ -1,0 +1,3 @@
+['x1212', 'C7+11+12+13+17'] # which cross-correlations to calculate
+['central', 'small_cross'] # what their names should be
+['6x8+11x13+16x18', '18x16+13x11+8x6', '6x16+7x17+8x18', '18x8+17x7+16x6'] # which correlations should be averaged, use only in combination with 'crossAll'

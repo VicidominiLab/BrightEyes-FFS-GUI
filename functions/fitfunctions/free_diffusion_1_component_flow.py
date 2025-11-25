@@ -11,7 +11,7 @@ def get_params():
         # [c, tauD, w2 for all, SF for all, rho for all, vx, vy, offset for all]
         "allparamDefvalues"    : [-1, -1, -1, -1, -1, -1, -1, -1, -1],
         "paramFactors10"       : [1, 1, 1, 1, 1, 1, 1e3, 1e3, 1],
-        "paramMinbound"        : [0, 5e-2, 5e-2, 0, -1e6, -1e6, -1e6, -1e6, -1e2],
+        "paramMinbound"        : [0, 1e-3, 5e-2, 0, -1e6, -1e6, -1e6, -1e6, -1e2],
         "paramMaxbound"        : [1e6, 1000, 1e4, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6],
         "fitfunctionName"      : fcs_fit_dualfocus,
         "fitfunctionParamUsed" : [0, 1, 2, 3, 4, 5, 6, 7, 8]

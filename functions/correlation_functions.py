@@ -97,7 +97,8 @@ def list_of_correlation_functions():
                 correlation.set_params(params)
                 
                 modename = correlation.mode
-                listOfCorrelations.append(modename)
+                if modename != 'Curve from file':
+                    listOfCorrelations.append(modename)
                 
     correlationsSpotVar = [i for i in listOfCorrelations if i.startswith("Spot-variation")]
     correlationsOther = [i for i in listOfCorrelations if i not in correlationsSpotVar]
@@ -183,6 +184,14 @@ def get_correlation_object_from_name(name, det_type='Square 5x5'):
             return correlation
         
         from functions.correlations.spot_variation_fcs_extended import get_params
+        params = get_params(det_type)
+        correlation = CorrelationFunction()
+        correlation.set_params(params)
+        modename = correlation.mode
+        if name == modename:
+            return correlation
+        
+        from functions.correlations.csv import get_params
         params = get_params(det_type)
         correlation = CorrelationFunction()
         correlation.set_params(params)

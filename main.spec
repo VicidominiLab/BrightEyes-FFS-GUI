@@ -24,7 +24,7 @@ a = Analysis(
 		('files/Cells_DEKegfp_75x75um.jpg', 'files/Cells_DEKegfp_75x75um.jpg'),
 		('functions', 'functions')
     ],
-    hiddenimports=['matplotlib.backends.backend_qt5agg', 'brighteyes_ffs.fcs_gui.correlation_functions_class', 'functions', 'xsdata_pydantic_basemodel.hooks', 'xsdata_pydantic_basemodel.hooks.class_type'],
+    hiddenimports=['matplotlib.backends.backend_qt5agg', 'brighteyes_ffs.fcs.atimes_data', 'brighteyes_ffs.fcs.atimes2corrparallel',  'brighteyes_ffs.fcs_gui.correlation_functions_class', 'functions', 'xsdata_pydantic_basemodel.hooks', 'xsdata_pydantic_basemodel.hooks.class_type'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

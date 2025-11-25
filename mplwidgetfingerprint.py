@@ -9,6 +9,7 @@ class MplWidgetFingerPrint(QWidget):
     showPhotons = pyqtSignal()
     showN = pyqtSignal()
     showTau = pyqtSignal()
+    showD = pyqtSignal()
     showw0 = pyqtSignal()
     
     def __init__(self, parent = None):
@@ -50,6 +51,10 @@ class MplWidgetFingerPrint(QWidget):
         action3 = QAction("Show tau", self)
         action3.triggered.connect(lambda: self.showTau.emit())
         menu.addAction(action3)
+        
+        action3b = QAction("Show D", self)
+        action3b.triggered.connect(lambda: self.showD.emit())
+        menu.addAction(action3b)
         
         action4 = QAction("Show beam waist", self)
         action4.triggered.connect(lambda: self.showw0.emit())
