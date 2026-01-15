@@ -191,7 +191,7 @@ def get_correlation_object_from_name(name, det_type='Square 5x5'):
         if name == modename:
             return correlation
         
-        from functions.correlations.csv import get_params
+        from functions.correlations.corr_from_csv import get_params
         params = get_params(det_type)
         correlation = CorrelationFunction()
         correlation.set_params(params)

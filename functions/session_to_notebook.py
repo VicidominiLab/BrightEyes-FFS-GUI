@@ -132,7 +132,9 @@ def convert_session_to_notebook(lib, notebook_path):
         averaging_str = list_to_string(averaging)
     algorithm = str(analysis_object.settings.algorithm)
     if algorithm == 'pch':
-        algorithm_str = 'accuracy=30, binsize=resolution'
+        import_corr = 'from brighteyes_ffs.fcs.fcs2corr import fcs_load_and_corr_split as correlate'
+        algorithm_settings_str = 'accuracy=30, binsize=resolution'
+        algorithm_str = ', algorithm=algorithm'
         xlabel = 'Counts per bin'
         ylabel = 'Relative frequency'
         xscale = 'linear'
@@ -141,8 +143,22 @@ def convert_session_to_notebook(lib, notebook_path):
         fit_str1 = 'fitresult = fit_pch(Gexp, fit_info[0:nparam], param[0:nparam], psf=list(param[nparam:nparam+2]), fitfun=my_fit_fun, lBounds=lBounds[0:nparam], uBounds=uBounds[0:nparam], n_bins=param[nparam+2], minimization="absolute")'
         corr_plot = 'plt.bar(Gsingle[0:,0], Gsingle[0:,1], label=corr, alpha=0.4)'
     
+    elif algorithm == 'tt2corr':
+        import_corr = 'from brighteyes_ffs.fcs.atimes2corrparallel import atimes_file_2_corr as correlate'
+        algorithm_settings_str = 'accuracy=resolution'
+        algorithm_str = ''
+        xlabel = 'Lag time (s)'
+        ylabel = 'G'
+        xscale = 'log'
+        yscale = 'linear'
+        fit_str0 = ''
+        fit_str1 = 'fitresult = fcs_fit(Gexp, tau, my_fit_fun, fit_info, param, lBounds, uBounds, plotInfo=-1)'
+        corr_plot = 'plt.scatter(Gsingle[1:,0], Gsingle[1:,1], s=4, label=corr)'
+    
     else:
-        algorithm_str = 'accuracy=resolution'
+        import_corr = 'from brighteyes_ffs.fcs.fcs2corr import fcs_load_and_corr_split as correlate'
+        algorithm_settings_str = 'accuracy=resolution'
+        algorithm_str = ', algorithm=algorithm'
         xlabel = 'Lag time (s)'
         ylabel = 'G'
         xscale = 'log'
@@ -163,11 +179,13 @@ def convert_session_to_notebook(lib, notebook_path):
     cells = [
         nbf.v4.new_markdown_cell("# Generated Jupyter Notebook"),
         nbf.v4.new_markdown_cell("Import packages"),
-        nbf.v4.new_code_cell("""from brighteyes_ffs.fcs.fcs2corr import fcs_load_and_corr_split as correlate
-from brighteyes_ffs.fcs.fcs2corr import fcs_av_chunks
-from brighteyes_ffs.fcs.fcs_fit import fcs_fit, make_fit_info_global_fit, read_global_fit_result
+        nbf.v4.new_code_cell(import_corr + """
+from brighteyes_ffs.fcs.fcs_fit import fcs_fit, make_fit_info_global_fit, read_global_fit_result, stddev_2_weights
 from brighteyes_ffs.fcs.get_fcs_info import get_metafile_from_file, get_file_info
+from brighteyes_ffs.tools.print_tools import print_table
+from brighteyes_ffs.tools.fit_curve import fit_curve
 from brighteyes_ffs.fcs_gui.read_ffs import read_g_from_ffs
+from brighteyes_ffs.fcs_gui.timetrace_end import timetrace_end
 from brighteyes_ffs.pch.pch_fit import fit_pch
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -182,14 +200,17 @@ resolution = """ + resolution + """
 chunksize = """ + chunksize),
         nbf.v4.new_code_cell("""mdata = get_file_info(get_metafile_from_file(file))"""),
         nbf.v4.new_markdown_cell("Calculate correlations"),
-        nbf.v4.new_code_cell("""G, time_trace = correlate(file, list_of_g=list_of_g, """ + algorithm_str + """, split=chunksize, time_trace=True, averaging=averaging, list_of_g_out=list_of_g_out, algorithm=algorithm)"""),
+        nbf.v4.new_code_cell("""G, time_trace = correlate(file, list_of_g=list_of_g, """ + algorithm_settings_str + """, split=chunksize, time_trace=True, averaging=averaging, list_of_g_out=list_of_g_out""" + algorithm_str + """)"""),
         nbf.v4.new_markdown_cell("Plot time trace"),
         nbf.v4.new_code_cell("""num_chunks = int(np.floor(mdata.duration / chunksize))
 splits = np.arange(0, (num_chunks+1)*chunksize, chunksize)
 good_chunks = """ + chunks_off_str ),
-        nbf.v4.new_code_cell("""fig, ax = plt.subplots(figsize=(4,2))
-for i in range(25):
-    plt.plot(time_trace[:,i])
+        nbf.v4.new_code_cell("""n_t = timetrace_end(time_trace) # time_trace is a compressed version of the actual time_trace with between 900-1000 data points
+time = np.linspace(0, mdata.duration, n_t)
+
+fig, ax = plt.subplots(figsize=(4,2))
+for i in range(np.shape(time_trace)[1]):
+    plt.plot(time, time_trace[0:n_t,i])
 ymin = np.min(time_trace)
 ymax = np.max(time_trace)
 if len(splits) <= 101:
@@ -197,13 +218,15 @@ if len(splits) <= 101:
     if good_chunks is not None:
         for i in range(len(splits) - 1):
             if i not in good_chunks:
-                rect = patches.Rectangle((1000/mdata.duration*splits[i], ymin), 1000/mdata.duration*(splits[i+1]-splits[i]), ymax-ymin, fc='r', alpha=0.3)
+                rect = patches.Rectangle((chunksize*splits[i], ymin), chunksize*(splits[i+1]-splits[i]), ymax-ymin, fc='r', alpha=0.3)
                 ax.add_patch(rect)
-plt.xlabel('Time (arb. units)')
+plt.xlim([0, mdata.duration])
+plt.ylim([ymin, ymax])
+plt.xlabel('Time (s)')
 plt.ylabel('Photon counts per bin')"""),
         nbf.v4.new_markdown_cell("""Plot correlations  
 First, calculate the average correlation of the good chunks. Then, plot the result."""),
-        nbf.v4.new_code_cell("""G = fcs_av_chunks(G, good_chunks)"""),
+        nbf.v4.new_code_cell("""G.average_chunks(good_chunks)"""),
         
         nbf.v4.new_code_cell("""plt.figure(figsize=(4,3))
 for corr in list_of_g_out:
@@ -225,6 +248,11 @@ plt.yscale('""" + yscale + """')"""),
             paramFactors10 = list_to_string(fit_obj_single.param_factors10, element_type="")
             fitfunction = fit_obj_single.fitfunction
             
+            param_all_str = []
+            for i_fit in range(len(fit_object.fit_all_curves)):
+                fit_startv = fit_object.fit_all_curves[i_fit].startvalues
+                param_all_str.append(list_to_string(fit_startv, element_type=""))
+            
             if fitfunction is not None:
             
                 fitfunction_label = fit_obj_single.fitfunction_label # more readable name of the fit function
@@ -236,11 +264,15 @@ plt.yscale('""" + yscale + """')"""),
                 if "maximum entropy" in fit_obj_single.fitfunction_label.lower():
                     fit_startv = fit_startv[-7:]
                 fitmodel = get_fit_model_from_name(fit_obj_single.fitfunction_label)
+                fs = fit_startv
                 fit_startv = list_to_string(fit_startv, element_type="")
+                
                 
                 fitf = str(fitmodel.fitfunction_name)
                 
+                global_param = 'None'
                 if 'global' in fitfunction_label:
+                    global_param = list_to_string(fitmodel.global_param, element_type="")
                     rho_x = []
                     rho_y = []
                     for corr in fit_object.fit_all_curves:
@@ -251,36 +283,48 @@ plt.yscale('""" + yscale + """')"""),
                     nbf.v4.new_code_cell("""from """ + str(fitfunction.__module__) + """ import """ + fitfunction.__name__ + """ as my_fit_fun # you chose """ + fitfunction_label + """ as the fit function""" ),
                     nbf.v4.new_code_cell("""start_idx = """ + fitstart + """
 stop_idx = """ + fitstop + """
-starting_values = np.asarray(""" + fit_startv + """)
+global_param = np.asarray(""" + global_param + """)
+fit_info = np.asarray(""" + fit_info + """) # use 1 for parameters that have to be fitted, 0 otherwise
 lBounds = np.asarray(""" + minbound + """) # the lower bounds for the fit parameters
 uBounds = np.asarray(""" + maxbound + """) # the upper bounds for the fit parameters
-fit_info = np.asarray(""" + fit_info + """) # use 1 for parameters that have to be fitted, 0 otherwise
 rho_x = """ + list_to_string(rho_x, element_type="") + """
 rho_y = """ + list_to_string(rho_y, element_type="") + """
-G_all, tau, fit_info_all = make_fit_info_global_fit(G, list_of_g_out, lBounds, uBounds, fit_info, starting_values, rho_x, rho_y)
-fitresult = fcs_fit(G_all[start_idx:stop_idx], tau[start_idx:stop_idx], my_fit_fun, fit_info_all[:,0], fit_info_all[:,1], fit_info_all[:,2], fit_info_all[:,3], -1, 0, 0, False)
-print(read_global_fit_result(fitresult, list_of_g_out,  fit_info, starting_values, rho_x, rho_y))"""),
-        nbf.v4.new_code_cell("""plt.figure()
-for f, corr in enumerate(list_of_g_out):
+param = np.zeros((len(fit_info), len(G.list_of_g_out)))
+for i, corr in enumerate(G.list_of_g_out):
+    param[:, i] = np.asarray([""" + str(fs[0]) + """, """ + str(fs[1]) + """, """ + str(fs[2]) + """, """ + str(fs[3]) + """, rho_x[i], rho_y[i], """ + str(fs[6]) + """, """ + str(fs[7]) + """, """ + str(fs[8]) + """]) # starting values
+G_all, tau, Gstd = G.get_av_corrs(G.list_of_g_out, '_averageX') # make 2D array with all G curves, 1D array with tau, 2D array with weights
+weights = stddev_2_weights(Gstd, clipmax=1) # weights are normalized to max=1, clipmax=1 means no clipping
+fitresult = fcs_fit(G_all[start_idx:stop_idx,:], tau[start_idx:stop_idx], my_fit_fun, fit_info, param, lBounds, uBounds, plotInfo=-1, global_param=global_param, weights=weights[start_idx:stop_idx])
+print_table(fitresult.x)"""),
+        nbf.v4.new_code_cell("""f, axs = plt.subplots(1, 3, figsize=(10,3))
+for f, corr in enumerate(G.list_of_g_out):
     Gsingle = getattr(G, corr + '_averageX')
-    plt.scatter(tau[start_idx:stop_idx], Gsingle[start_idx:stop_idx,1], s=2)
-    plt.plot(tau[start_idx:stop_idx], Gsingle[start_idx:stop_idx,1]-fitresult.fun[f*(stop_idx-start_idx):(f+1)*(stop_idx-start_idx)], label=corr)
-plt.xscale('log')
-plt.xlabel('Lag time (s)')
-plt.ylabel('G')
-plt.legend()"""),
+    axs[0].scatter(tau[start_idx:stop_idx], Gsingle[start_idx:stop_idx,1], s=2)
+    #axs[2].scatter(tau[start_idx:stop_idx], Gsingle[start_idx:stop_idx,1], s=2)
+
+for f, corr in enumerate(G.list_of_g_out):
+    Gsingle = getattr(G, corr + '_averageX')
+    axs[1].plot(tau[start_idx:stop_idx], Gsingle[start_idx:stop_idx,1]-fitresult.fun[:,f])
+    axs[2].plot(tau[start_idx:stop_idx], fitresult.fun[:,f])
+
+titles = ['G', 'Fit', 'Residuals']
+for i in range(3):
+    axs[i].set_xscale('log')
+    axs[i].set_xlabel('Lag time (s)')
+    axs[i].set_title(titles[i])"""),
                 ]
                 else:
                     cells += [
                     nbf.v4.new_markdown_cell("Fit correlations"),
                     nbf.v4.new_code_cell("""from """ + str(fitfunction.__module__) + """ import """ + fitfunction.__name__ + """ as my_fit_fun # you chose """ + fitfunction_label + """ as the fit function""" ),
                     nbf.v4.new_code_cell("""fitresults = []
-for corr in list_of_g_out:
+param_all = [""" + ", ".join(param_all_str) + """]
+for i, corr in enumerate(list_of_g_out):
     Gsingle = getattr(G, corr + '_averageX')
     Gexp = Gsingle[""" + fitstart + """:""" + fitstop + """,1] # your chosen range for fitting
     tau = Gsingle[""" + fitstart + """:""" + fitstop + """,0] # corresponding tau values
     fit_info = np.asarray(""" + fit_info + """) # use 1 for parameters that have to be fitted, 0 otherwise
-    param = np.asarray(""" + fit_startv + """)
+    param = np.asarray(param_all[i])
     lBounds = np.asarray(""" + minbound + """) # the lower bounds for the fit parameters
     uBounds = np.asarray(""" + maxbound + """) # the upper bounds for the fit parameters
     """ + fit_str0 + """
@@ -326,6 +370,57 @@ plt.imshow(np.flipud(z), cmap='jet')
 plt.plot(R*np.cos(phi) + R, R*np.sin(phi)+R, '-', color='k', linewidth=5)
 plt.xlim([-0.1*R, 2.1*R])
 plt.ylim([-0.1*R, 2.1*R])"""),
+            
+            ]
+            
+            elif fit_obj_single.fitfunction_label == 'Maximum entropy method free diffusion':
+                cells += [
+                nbf.v4.new_markdown_cell("Distribution of diffusion times"),
+                nbf.v4.new_code_cell("""plt.figure(figsize=(4,3))
+
+taumin = np.log10(Gsingle[2,0])
+taumax = np.log10(Gsingle[141-1,0])
+tauD = np.logspace(taumin, taumax, 200)
+
+for i, corr in enumerate(list_of_g):
+    # plot correlation
+    fitresult = fitresults[i].x
+    plt.plot(tauD, fitresult, label=corr)
+plt.legend()
+plt.xlabel('Lag time (s)')
+plt.ylabel('Fraction')
+plt.xscale('log')
+plt.yscale('linear')"""),
+            
+            ]
+                                     
+            elif fit_object.return_all("w0") is not None and None not in fit_object.return_all("w0"):
+                w0 = fit_object.return_all("w0")
+                w0 = ",".join(map(str, w0))
+                cells += [
+                nbf.v4.new_markdown_cell("Diffusion law"),
+                nbf.v4.new_code_cell("""w0 = 1e-3 * np.asarray([""" + w0 + """]) # beam waists in um
+taufit = [fitresult.x[1] for fitresult in fitresults]
+
+fitresult_difflaw = fit_curve(taufit, w0**2, 'linear', [1, 1], [1, 1], [-1e6, -1e6], [1e6, 1e6], savefig=0)
+
+plt.figure(figsize=(3,3))
+for i in range(len(taufit)):
+    plt.scatter(w0[i]**2, taufit[i], edgecolors='k', marker='s')
+w02fit = np.zeros(len(w0) + 1)
+w02fit[0] = 0
+w02fit[1:] = w0**2
+taufitres = np.zeros(len(w0) + 1)
+taufitres[0] = fitresult_difflaw.x[1]
+taufitres[1:] = taufit - fitresult_difflaw.fun
+if fitresult_difflaw.x[1] < 0:
+    fitlabel = 'y = {A:.2f} x {B:.2f}'.format(A=fitresult_difflaw.x[0], B=fitresult_difflaw.x[1])
+else:
+    fitlabel = 'y = {A:.2f} x + {B:.2f}'.format(A=fitresult_difflaw.x[0], B=fitresult_difflaw.x[1])
+plt.plot(w02fit, taufitres, '--', color='k', linewidth=0.7, label=fitlabel, zorder=1)
+plt.title(fitlabel)
+plt.xlabel('w0^2 (um^2)')
+plt.ylabel('Diffusion time (ms)')"""),
             
             ]
         

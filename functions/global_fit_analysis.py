@@ -47,6 +47,7 @@ def make_fit_info(allfits, len_G, r, analysis):
     
     Ntraces = len(allfits)
     G = np.zeros((len_G, Ntraces))
+    weights = np.zeros((len_G, Ntraces))
     param = np.zeros((9, Ntraces)) # fitinfo, startv, minb, maxb
     
     for f in range(Ntraces):
@@ -54,6 +55,9 @@ def make_fit_info(allfits, len_G, r, analysis):
         fit = allfits[f]
         Gtemp = analysis.get_corr(fit.data)
         G[:,f] = Gtemp[:,1]
+        Gstd = Gtemp[:, 2] + 1e-10 # convert standard deviation to weights
+        weights[:,f] = 1 / Gstd**2
+        weights[Gstd==1e-10,f] = 0 # points with 0 std are not taken into account
         minb = fit.minbound
         maxb = fit.maxbound
         stop = np.min((r[1], len_G))
@@ -63,7 +67,7 @@ def make_fit_info(allfits, len_G, r, analysis):
         fit_info = fit.fitarray[0:-1]
         param[:, f] = fit.startvalues
        
-    return G, start, stop, param, fit_info, minb, maxb, Ntraces
+    return G, start, stop, param, fit_info, minb, maxb, Ntraces, weights
 
 
 def make_fit_info_global_pch(allfits, len_hist, r, analysis):

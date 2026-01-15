@@ -3,11 +3,9 @@ TO DO:
     URGENT
     ---------------------------------------------------------------------
     software may crash when fit residuals not finite in initial point
-    custom vs. import csv file
     flow vs. all cross give different heat map
     all cross no heat map???
     lifetime
-    
         
     CALCULATING CORRELATIONS
     ---------------------------------------------------------------------
@@ -53,7 +51,15 @@ TO DO:
     fitrange update
     https://pyinstaller.readthedocs.io/en/stable/usage.html
  
++------------------------- to generate an .exe -------------------------------+
+    create and acticate new venv
+    pip install brighteyes_ffs
+    pip install pyinstaller
+    go to ffs_gui folder
+    execute pyinstaller main.spec
     
+    pip install "pydantic<2.0"
+  
 +------------------------- to generate an .exe -------------------------------+
     open anaconda prompt as admin
     go to ffs_gui folder
@@ -141,6 +147,7 @@ from brighteyes_ffs.fcs.imsd import fcs2imsd
 from brighteyes_ffs.fcs.extract_spad_data import extract_spad_data
 from brighteyes_ffs.fcs.filter_g import check_chunks_from_g_obj
 from brighteyes_ffs.fcs.plot_fingerprint import plot_fingerprint_airyscan, plot_fingerprint_luminosa
+from brighteyes_ffs.fcs.extract_spad_data_kw import keyword_2_ch
 
 from brighteyes_ffs.pch.pch_fit import fit_pch
 
@@ -312,7 +319,8 @@ def plot_difflaw(self):
                         taufit = allfitresults[idxtau, :]
                         fitresult = fit_curve(taufit, w0**2, 'linear', [1, 1], [1, 1], [-1e6, -1e6], [1e6, 1e6], savefig=0)
                         for i in range(len(taufit)):
-                            self.ui.difflaw_widget.canvas.axes.scatter(w0[i]**2, taufit[i], color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'), edgecolors='k', marker='s', s=20, zorder=2)
+                            color = color_from_map(np.mod(i, len(taufit)), startv=0, stopv=len(taufit), cmap='gist_earth')
+                            self.ui.difflaw_widget.canvas.axes.scatter(w0[i]**2, taufit[i], color=color, edgecolors=color, alpha=0.7, marker='o', s=30, zorder=2)
                         w02fit = np.zeros(len(w0) + 1)
                         w02fit[0] = 0
                         w02fit[1:] = w0**2
@@ -342,7 +350,8 @@ def plot_difflaw(self):
                         V = w0**3*SPfit
                         fitresult = fit_curve(Nfit, V, 'linear', [1, 1], [1, 1], [-1e6, -1e6], [1e6, 1e6], savefig=0)
                         for i in range(len(Nfit)):
-                            self.ui.difflaw_widget.canvas.axes.scatter(V[i], Nfit[i], color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'), edgecolors='k', marker='s', s=20, zorder=2)
+                            color = color_from_map(np.mod(i, len(Nfit)), startv=0, stopv=len(Nfit), cmap='gist_earth')
+                            self.ui.difflaw_widget.canvas.axes.scatter(V[i], Nfit[i], color=color, edgecolors=color, alpha=0.7, marker='o', s=30, zorder=2)
                         Vfit = np.zeros(len(V) + 1)
                         Vfit[0] = 0
                         Vfit[1:] = V
@@ -398,7 +407,8 @@ def plot_difflaw(self):
                                 #print(str(float(np.sum(tt_single)) / duration / Nfit[idx_el] / 1000))
                                 pcr[idx_el] = float(n_photons) / tot_time / Nfit[idx_el] / 1000 # kHz
                                 #print(str(float(n_photons) / tot_time / Nfit[idx_el] / 1000))
-                                self.ui.difflaw_widget.canvas.axes.scatter(Nfit[idx_el], pcr[idx_el], color=color_from_map(np.mod(idx_el, 8), startv=0, stopv=8, cmap='Set2'), edgecolors='k', marker='s', s=20, zorder=2)
+                                color=color_from_map(np.mod(idx_el, len(elements)), startv=0, stopv=len(elements), cmap='gist_earth')
+                                self.ui.difflaw_widget.canvas.axes.scatter(Nfit[idx_el], pcr[idx_el], color=color, edgecolors=color, alpha=0.7, marker='o', s=30, zorder=2)
                             self.ui.difflaw_widget.canvas.axes.set_xscale('linear')
                             self.ui.difflaw_widget.canvas.axes.set_xlim([0, np.max(Nfit)*1.1])
                             self.ui.difflaw_widget.canvas.axes.set_ylim([0, np.max(pcr)*1.1])
@@ -490,7 +500,7 @@ def plot_difflaw(self):
                             if add_to_sum:
                                 xsum += x
                                 ysum += y
-                            self.ui.difflaw_widget.canvas.axes.scatter(1000*x, 1000*y, color=c, marker='o', s=15, edgecolors='k')
+                            self.ui.difflaw_widget.canvas.axes.scatter(1000*x, 1000*y, color=c, marker='o', s=15, edgecolors=c, alpha=0.7)
                     dt = np.max(1000*dtimes[1:4,1:4])
                     self.ui.difflaw_widget.canvas.axes.arrow(-(1000*xsum/2), -(1000*ysum/2), 1000*xsum, 1000*ysum, width=0.03*dt, head_width=0.09*dt, color=color_from_map(1, startv=0, stopv=8, cmap='Set2'), length_includes_head=True)
                     self.ui.difflaw_widget.canvas.axes.set_xlim([-1.1*dt, 1.1*dt])
@@ -510,7 +520,7 @@ def plot_difflaw(self):
                     showdialog('Warning', 'Mean squared displacement analysis not possible', 'Calculate all cross-correlations to use this analysis.')
                     return
                 
-                self.ui.difflaw_widget.canvas.axes.scatter(1e3*tau, var, c='red', marker='o', s=15, edgecolors='k')
+                self.ui.difflaw_widget.canvas.axes.scatter(1e3*tau, var, c='red', marker='o', s=30, edgecolors='k')
                 self.ui.difflaw_widget.canvas.axes.plot(1e3*tau, varfit, c='k')
                 self.ui.difflaw_widget.canvas.axes.set_xlabel('Time (ms)', fontsize=7)
                 self.ui.difflaw_widget.canvas.axes.set_ylabel('Sigma^2', fontsize=7)
@@ -529,8 +539,9 @@ def plot_difflaw(self):
                     return
                 
                 for i in range(np.shape(allfitresults)[1]):
-                    self.ui.difflaw_widget.canvas.axes.scatter(tauD, allfitresults[:,i], color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'), edgecolors='k', zorder=2, s=6)
-                    self.ui.difflaw_widget.canvas.axes.plot(tauD, allfitresults[:,i], color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'), zorder=3)
+                    color=color_from_map(np.mod(i, np.shape(allfitresults)[1]), startv=0, stopv=np.shape(allfitresults)[1]+1, cmap='gist_earth')
+                    self.ui.difflaw_widget.canvas.axes.scatter(tauD, allfitresults[:,i], color=color, edgecolors=color, alpha=0.7, zorder=2, s=6)
+                    self.ui.difflaw_widget.canvas.axes.plot(tauD, allfitresults[:,i], color=color, zorder=3)
                 self.ui.difflaw_widget.canvas.axes.set_xlabel('Diffusion time (s)', fontsize=7)
                 self.ui.difflaw_widget.canvas.axes.set_ylabel('Relative concentration', fontsize=7)
                 self.ui.difflaw_widget.canvas.axes.set_xlim([np.min(tauD), np.max(tauD)])
@@ -581,17 +592,40 @@ def update_timetrace(self, file):
             else:
                 yout = yfloat
             if q == "Central":
-                detEl = get_elsum(int(np.sqrt(N)), 0)
-                yout = yfloat[:, detEl[0]]
+                if N == 23:
+                    detEl = 20-9
+                elif N == 32:
+                    detEl = 0
+                else:
+                    detEl = get_elsum(int(np.sqrt(N)), 0)
+                yout = yfloat[:, detEl]
             if q == "Spot-variation":
                 # type sum3x3, sum5x5, sum7x7, etc.
-                Nrings = int(np.ceil(np.sqrt(N) / 2))
                 Nt = int(np.shape(yfloat)[0])
-                yout = np.zeros((Nt, Nrings))
-                for r in range(Nrings):
-                    detEl = get_elsum(int(np.sqrt(N)), r)
-                    for det in detEl:
-                        yout[:, r] += yfloat[:, det]
+                if N == 23:
+                    rings = [keyword_2_ch["picentral"], keyword_2_ch["piring1"], keyword_2_ch["piring2"]]
+                    Nrings = len(rings)
+                    yout = np.zeros((Nt, Nrings))
+                    for r in range(Nrings):
+                        detEl = [i-9 for i in rings[r]]
+                        for det in detEl:
+                            yout[:, r] += yfloat[:, det]
+                elif N == 32:
+                    rings = [keyword_2_ch["airycentral"], keyword_2_ch["airyring1"], keyword_2_ch["airyring2"]]
+                    Nrings = len(rings)
+                    yout = np.zeros((Nt, Nrings))
+                    for r in range(Nrings):
+                        detEl = [i for i in rings[r]]
+                        for det in detEl:
+                            yout[:, r] += yfloat[:, det]
+                else:
+                    rings = [keyword_2_ch["central"], keyword_2_ch["sum3"], keyword_2_ch["sum5"]]
+                    Nrings = len(rings)
+                    yout = np.zeros((Nt, Nrings))
+                    for r in range(Nrings):
+                        detEl = [i for i in rings[r]]
+                        for det in detEl:
+                            yout[:, r] += yfloat[:, det]
             if q == "All individually":
                 yout = yfloat
             plot_timetrace(self, x, yout, splits, chunks_off)
@@ -619,7 +653,7 @@ def plot_timetrace(self, x, y, splits=None, chunks_off=None):
     self.ui.timetrace_widget.canvas.axes.clear()
     self.ui.timetrace_widget.canvas.axes.set_facecolor((1, 1, 1))
     for i in range(Nplots):
-        self.ui.timetrace_widget.canvas.axes.plot(x, y[:,i], color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'), linewidth=0.7)
+        self.ui.timetrace_widget.canvas.axes.plot(x, y[:,i], color=color_from_map(i, 0, 1.2*Nplots, 'gist_earth'), linewidth=0.7)
     self.ui.timetrace_widget.canvas.axes.set_xlim([xmin, xmax+x[1]-x[0]])
     self.ui.timetrace_widget.canvas.axes.set_ylim([ymin, ymax])
     self.ui.timetrace_widget.canvas.axes.set_xlabel('Time (s)', fontsize=7)
@@ -638,12 +672,12 @@ def plot_timetrace(self, x, y, splits=None, chunks_off=None):
                     lw = 0
                     facec = 'white'
                     if not chunks_off[i]:
-                        facec = ap("discol")
+                        facec = 'r'
                     if i == self.ui.chunk_spinBox.value():
                         edgec = ap('chunkbord')
                         lw = 2
                     if not chunks_off[i] or i == self.ui.chunk_spinBox.value():
-                        rect = patches.Rectangle((splits[i], ymin), splits[i+1]-splits[i], ymax-ymin, fc=facec, linewidth=lw, edgecolor=edgec)
+                        rect = patches.Rectangle((splits[i], ymin), splits[i+1]-splits[i], ymax-ymin, fc=facec, alpha=0.2, linewidth=lw, edgecolor=edgec)
                         self.ui.timetrace_widget.canvas.axes.add_patch(rect)
         else:
             i = self.ui.chunk_spinBox.value()
@@ -708,10 +742,8 @@ def update_analysis(self, file):
                         xmax = np.max((xmax, np.max(x)))
                         ymin = np.min((ymin, np.min(y)))
                         ymax = 1.1*np.max((ymax, np.max(y)))
-                        if len(elements) <= 3:
-                            bar_handle = self.ui.correlations_widget.canvas.axes.bar(x, y, width=bar_width, label=element, alpha=0.5, color=color_from_map(np.mod(plotcolor, 8), startv=0, stopv=8, cmap='Set2'))
-                        else:
-                            self.ui.correlations_widget.canvas.axes.scatter(x, y,label=element, s=10, color=color_from_map(np.mod(plotcolor, 8), startv=0, stopv=8, cmap='Set2'))
+                        
+                        self.ui.correlations_widget.canvas.axes.scatter(x, y,label=element, s=15, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
                         plotcolor += 1
                         Nplots += 1
                         xscaling = 'linear'
@@ -729,7 +761,7 @@ def update_analysis(self, file):
                             std = Gsingle[:, 2]
                             #self.correlations_widget.canvas.axes.plot(x[1:], y[1:]+std[1:])
                             #self.correlations_widget.canvas.axes.plot(x[1:], y[1:]-std[1:])
-                        scatter_handle = self.ui.correlations_widget.canvas.axes.scatter(x[1:], y[1:], s=3, label=element, color=color_from_map(np.mod(plotcolor, 8), startv=0, stopv=8, cmap='Set2'))
+                        scatter_handle = self.ui.correlations_widget.canvas.axes.scatter(x[1:], y[1:], s=10, alpha=0.7, label=element, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements), cmap='gist_earth'))
                         self.scatter_handles.append(scatter_handle)  # Store scatter handle
                         plotcolor += 1
                         Nplots += 1
@@ -749,8 +781,8 @@ def update_analysis(self, file):
                                     yminfit = np.min((yminfit, np.min(y[start:stop])))
                                     ymaxfit = np.max((ymaxfit, np.max(y[start:stop])))
                                     if fit[0].fitfunction_label not in ['Flow heat map', 'Asymmetry heat map', 'Model-free displacement analysis']:
-                                        fit_handle = self.ui.correlations_widget.canvas.axes.plot(x[start:stop], y[start:stop] - fitres, linewidth=0.7, color=color_from_map(np.mod(j, 8), startv=0, stopv=8, cmap='Set2'))
-                                        self.ui.correlations_widget.canvas.axes2.plot(x[start:stop], fitres, linewidth=0.7, color=color_from_map(np.mod(j, 8), startv=0, stopv=8, cmap='Set2'))
+                                        fit_handle = self.ui.correlations_widget.canvas.axes.plot(x[start:stop], y[start:stop] - fitres, linewidth=1.0, color=color_from_map(j, 0, len(fit)+1, 'gist_earth'))
+                                        self.ui.correlations_widget.canvas.axes2.plot(x[start:stop], fitres, linewidth=0.7, color=color_from_map(j, 0, len(fit)+1, 'gist_earth'))
                                         self.fit_handles.append(fit_handle)  # Store fit handle
             
             if fitfound:
@@ -775,10 +807,6 @@ def update_analysis(self, file):
                 # Now enable picking on the scatter plot points and the legend items
                 for handle in self.scatter_handles:
                     handle.set_picker(True)
-                
-                # for handle in self.fit_handles:
-                #     handle.set_picker(True)
-                
                 # Enable picking for the legend items
                 legend = self.ui.correlations_widget.canvas.axes.get_legend()
                 if legend is not None:
@@ -805,6 +833,7 @@ def update_analysis(self, file):
     self.ui.correlations_widget.canvas.axes2.tick_params(axis='both', which='minor', labelsize=6)
     
     self.ui.correlations_widget.canvas.draw()
+    
 
 def remove_image(self, imageNr='active'):
     currentImage = self.ffslib.active_image
@@ -1025,9 +1054,10 @@ def plot_fingerprint(self, fp):
         self.cbar = self.ui.fingerprint_widget.canvas.figure.colorbar(im, cax=cax, orientation='vertical')
         self.plot_colorbar = False
         self.cbar.update_normal(im)
-        
-    # Set ticks and labels
-    self.cbar.set_ticks([np.min(fp), np.max(fp)])
+        # Set ticks and labels
+        self.cbar.set_ticks([np.min(fp), np.max(fp)])
+        self.cbar.set_ticklabels([f"{np.min(fp):.0f}", f"{np.max(fp):.0f}"], fontsize=6)
+    
     self.cbar.set_ticklabels([f"{np.min(fp):.0f}", f"{np.max(fp):.0f}"], fontsize=6)
     self.ui.fingerprint_widget.canvas.draw()
 
@@ -1395,7 +1425,7 @@ def perform_fit(self, updateAll=False):
                     # weighted fit
                     weights = 1 / (G[start:stop, -1]**2) # convert standard deviation to variance
                     weights /= np.min(weights)
-                    weights = np.clip(weights, 0, 10) # clip excessive weights
+                    weights = np.clip(weights, 1, 100) # clip excessive weights
                 farr = farr[0:-1]
                 if G is not None:
                     if fitmodel.model == 'Maximum entropy method free diffusion':
@@ -1474,7 +1504,7 @@ def perform_fit(self, updateAll=False):
                 # PCH analysis
                 hist_all, start, stop, param, fit_info, psf, n_bins, minb, maxb, n_hist = make_fit_info_global_pch(allfits, len(G), r, analysis)
                 global_param = fitmodel.global_param
-                fitresult = fit_pch(hist_all[start:stop], fit_info, param, psf, minb, maxb, weights=1, n_bins=n_bins, global_param=global_param, fitfun='fitfun_pch_nc_global', minimization='relative')
+                fitresult = fit_pch(hist_all[start:stop], fit_info, param, psf, minb, maxb, weights=1, n_bins=n_bins, global_param=global_param, fitfun='fitfun_pch_nc_global', minimization='absolute')
                 for f in range(n_hist):
                     fit = allfits[f]
                     n_param = len(fitresult.x[:,f])
@@ -1486,10 +1516,16 @@ def perform_fit(self, updateAll=False):
             else:
                 # correlation analysis
                 tau = G[:, 0]
-                G, start, stop, param, fit_info, minb, maxb, Ntraces = make_fit_info(allfits, len(G), r, analysis)
+                G, start, stop, param, fit_info, minb, maxb, Ntraces, weights = make_fit_info(allfits, len(G), r, analysis)
+                if allfits[0].fitarray[-1] == 1:
+                    weights_min = np.min(weights[weights>0])
+                    weights = np.clip(weights/weights_min, 0, 100) # clip excessive weights
+                    weights = weights[start:stop,:]
+                else:
+                    weights = 1
                 try:
                     global_param = fitmodel.global_param
-                    fitresult = fcs_fit(G[start:stop,:], tau[start:stop], fitf, fit_info, param, minb, maxb, -1, global_param=global_param, weights=1)
+                    fitresult = fcs_fit(G[start:stop,:], tau[start:stop], fitf, fit_info, param, minb, maxb, -1, global_param=global_param, weights=weights)
                     for f in range(Ntraces):
                         fit = allfits[f]
                         fit.update(fitresult=fitresult.fun[:,f], startvalues=fitresult.x[:,f])
