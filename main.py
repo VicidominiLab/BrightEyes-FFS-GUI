@@ -52,7 +52,7 @@ TO DO:
     https://pyinstaller.readthedocs.io/en/stable/usage.html
  
 +------------------------- to generate an .exe -------------------------------+
-    create and acticate new venv
+    create and activate new venv
     pip install brighteyes_ffs
     pip install pyinstaller
     go to ffs_gui folder
@@ -60,13 +60,6 @@ TO DO:
     
     pip install "pydantic<2.0"
   
-+------------------------- to generate an .exe -------------------------------+
-    open anaconda prompt as admin
-    go to ffs_gui folder
-    activate ffs_gui environment: conda activate ffs_gui
-    execute pyinstaller main.spec
-    
-    pip install "pydantic<2.0"
 +-----------------------------------------------------------------------------+
     
     old version:
@@ -435,11 +428,11 @@ def plot_difflaw(self):
                 self.ui.difflaw_widget.canvas.axes.imshow(np.flipud(heatmap), cmap='PiYG')#, vmin=-np.max(np.abs(heatmap))*0.7, vmax=np.max(np.abs(heatmap)))
                 phi = np.linspace(0, 2*np.pi, 360)
                 R = len(heatmap) / 2
-                self.ui.difflaw_widget.canvas.axes.plot(R*np.cos(phi) + R, R*np.sin(phi)+R, '-', color='k', linewidth=5)
+                self.ui.difflaw_widget.canvas.axes.plot(R*np.cos(phi) + R, R*np.sin(phi)+R, '-', color='k', linewidth=1)
                 #S = R / 2
                 r = arrow[0]
                 u = arrow[1]
-                self.ui.difflaw_widget.canvas.axes.arrow(90-(r/2), 90-(u/2), r, u, width=1, head_width=4, color='k', length_includes_head=True)
+                #self.ui.difflaw_widget.canvas.axes.arrow(90-(r/2), 90-(u/2), r, u, width=1, head_width=4, color='k', length_includes_head=True)
                 #self.ui.difflaw_widget.canvas.axes.plot(S*np.cos(phi) + R, S*np.sin(phi)+R, ':', color='w', linewidth=0.7)
                 #for phi in [np.pi/4, np.pi/4*3, np.pi/4*5, np.pi/4*7]:
                  #   self.ui.difflaw_widget.canvas.axes.plot([R, R+R*np.cos(phi)], [R,R+ R*np.sin(phi)], ':', color='white')
@@ -458,7 +451,7 @@ def plot_difflaw(self):
                 R = len(heatmap) / 2
                 phi = np.linspace(0, 2*np.pi, 360)
                 self.ui.difflaw_widget.canvas.axes.imshow(np.flipud(heatmap), cmap='jet')
-                self.ui.difflaw_widget.canvas.axes.plot(R*np.cos(phi) + R, R*np.sin(phi)+R, '-', color='k', linewidth=5)
+                self.ui.difflaw_widget.canvas.axes.plot(R*np.cos(phi) + R, R*np.sin(phi)+R, '-', color='k', linewidth=1)
                 self.ui.difflaw_widget.canvas.axes.set_xlim([-0.1*R, 2.1*R])
                 self.ui.difflaw_widget.canvas.axes.set_ylim([-0.1*R, 2.1*R])
                 self.ui.difflaw_widget.canvas.axes.set_axis_off()
@@ -727,9 +720,12 @@ def update_analysis(self, file):
             for element in elements:
                 if corrshow == "Show average all active chunks" or mode == 'Curve from file':
                     Gsingle = analysis.get_corr(element)
+                    if Gsingle is None:
+                        return
+                    Gsingle = Gsingle.average(analysis.corrs.good_chunks)
                 else:
                     try:
-                        Gsingle = analysis.get_corr(element + '_chunk' + str(self.ui.chunk_spinBox.value()))
+                        Gsingle = analysis.get_corr(element).chunks[self.ui.chunk_spinBox.value()]
                     except:
                         Gsingle = None
                 if Gsingle is not None:
@@ -761,7 +757,7 @@ def update_analysis(self, file):
                             std = Gsingle[:, 2]
                             #self.correlations_widget.canvas.axes.plot(x[1:], y[1:]+std[1:])
                             #self.correlations_widget.canvas.axes.plot(x[1:], y[1:]-std[1:])
-                        scatter_handle = self.ui.correlations_widget.canvas.axes.scatter(x[1:], y[1:], s=10, alpha=0.7, label=element, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements), cmap='gist_earth'))
+                        scatter_handle = self.ui.correlations_widget.canvas.axes.scatter(x[1:], y[1:], s=10, alpha=0.7, label=element, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
                         self.scatter_handles.append(scatter_handle)  # Store scatter handle
                         plotcolor += 1
                         Nplots += 1
@@ -1095,8 +1091,7 @@ def open_ffs_file(self, buttonNr, filepath=None):
             currentFile.add_analysis(mode=get_correlation_object_from_name('Curve from file'))
             G = Correlations()
             Gtemp = csv2array(fname, dlmt=-1)
-            G.det0_chunk0 = Gtemp
-            G.det0_averageX = Gtemp
+            G.add_corr_chunks(Gtemp[np.newaxis, :, :])
             self.data = np.zeros((100,25))
             analysis = currentFile.get_analysis()
             analysis.update(corrs = G)
@@ -1395,7 +1390,8 @@ def perform_fit(self, updateAll=False):
         for f in range(len(allfits)):
             # get data
             fit = allfits[f]
-            G = analysis.get_corr(fit.data)
+            G = analysis.get_corr(fit.data).average(analysis.corrs.good_chunks)
+            
             r = fit.fitrange
             fitmodel = get_fit_model_from_name(fit.fitfunction_label)
             if fitmodel is None:
@@ -1425,7 +1421,7 @@ def perform_fit(self, updateAll=False):
                     # weighted fit
                     weights = 1 / (G[start:stop, -1]**2) # convert standard deviation to variance
                     weights /= np.min(weights)
-                    weights = np.clip(weights, 1, 100) # clip excessive weights
+                    weights = np.clip(weights, 1, 10) # clip excessive weights
                 farr = farr[0:-1]
                 if G is not None:
                     if fitmodel.model == 'Maximum entropy method free diffusion':

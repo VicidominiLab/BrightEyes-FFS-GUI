@@ -56,6 +56,7 @@ G, tau, Gfit, taufit = read_g_from_ffs(ffs_file, read='active')"""),
 for i in range(np.shape(G)[1]):
     if algorithm == 'pch':
         plt.bar(tau, G[:,i], alpha=0.5, color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'))
+        #plt.plot(taufit, Gfit[:,i], color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'))
     else:
         plt.scatter(tau, G[:,i], s=20, alpha=0.5, color=color_from_map(np.mod(i, 8), startv=0, stopv=8, cmap='Set2'))
 
@@ -182,6 +183,7 @@ def convert_session_to_notebook(lib, notebook_path):
         nbf.v4.new_code_cell(import_corr + """
 from brighteyes_ffs.fcs.fcs_fit import fcs_fit, make_fit_info_global_fit, read_global_fit_result, stddev_2_weights
 from brighteyes_ffs.fcs.get_fcs_info import get_metafile_from_file, get_file_info
+from brighteyes_ffs.fcs.plots import plot_timetrace, plot_fida_hist
 from brighteyes_ffs.tools.print_tools import print_table
 from brighteyes_ffs.tools.fit_curve import fit_curve
 from brighteyes_ffs.fcs_gui.read_ffs import read_g_from_ffs
@@ -218,19 +220,16 @@ if len(splits) <= 101:
     if good_chunks is not None:
         for i in range(len(splits) - 1):
             if i not in good_chunks:
-                rect = patches.Rectangle((chunksize*splits[i], ymin), chunksize*(splits[i+1]-splits[i]), ymax-ymin, fc='r', alpha=0.3)
+                rect = patches.Rectangle((chunksize*i, ymin), chunksize, ymax-ymin, fc='r', alpha=0.3)
                 ax.add_patch(rect)
 plt.xlim([0, mdata.duration])
 plt.ylim([ymin, ymax])
 plt.xlabel('Time (s)')
 plt.ylabel('Photon counts per bin')"""),
-        nbf.v4.new_markdown_cell("""Plot correlations  
-First, calculate the average correlation of the good chunks. Then, plot the result."""),
-        nbf.v4.new_code_cell("""G.average_chunks(good_chunks)"""),
-        
+        nbf.v4.new_markdown_cell("""Plot correlations"""),
         nbf.v4.new_code_cell("""plt.figure(figsize=(4,3))
 for corr in list_of_g_out:
-    Gsingle = getattr(G, corr + '_averageX')
+    Gsingle = getattr(G, corr).average(G.good_chunks)
     """ + corr_plot + """
 plt.legend()
 plt.xlabel('""" + xlabel + """')
@@ -271,7 +270,7 @@ plt.yscale('""" + yscale + """')"""),
                 fitf = str(fitmodel.fitfunction_name)
                 
                 global_param = 'None'
-                if 'global' in fitfunction_label:
+                if 'global' in fitfunction_label and 'PCH' not in fitfunction_label:
                     global_param = list_to_string(fitmodel.global_param, element_type="")
                     rho_x = []
                     rho_y = []
@@ -313,6 +312,16 @@ for i in range(3):
     axs[i].set_xlabel('Lag time (s)')
     axs[i].set_title(titles[i])"""),
                 ]
+                elif 'global' in fitfunction_label and 'PCH' in fitfunction_label:
+                        cells += [
+                        nbf.v4.new_code_cell("""from brighteyes_ffs.fcs.plots import plot_timetrace, plot_fida_hist
+from brighteyes_ffs.pch.pch_fit import fitfun_pch_nc_global as my_fit_fun # you chose PCH 2 components - global fit as the fit function""")]
+                        
+                        cells += [
+                        nbf.v4.new_code_cell(make_global_fit_pch_string(fit_object))]
+                        
+                        cells += [
+                        nbf.v4.new_code_cell("""plot_fida_hist(G, fitresult)""")]
                 else:
                     cells += [
                     nbf.v4.new_markdown_cell("Fit correlations"),
@@ -441,4 +450,36 @@ def list_to_string(my_list, element_type="'"):
         list_str += element_type + str(i) + element_type + ", "
     list_str = list_str[:-2] + "]"
     return list_str
+
+
+def make_global_fit_pch_string(fit_object):
     
+    list_of_str_of_param = []
+    for i, corr in enumerate(fit_object.fit_all_curves):
+        fitrange = corr.fitrange
+        row_list = list_to_string(corr.startvalues, "")
+        list_of_str_of_param.append(f"param[:,{i}] = {row_list}")
+    param_str = "\n".join(list_of_str_of_param)
+    stop_idx = str(int(fitrange[1]))
+    
+    string_to_return = """
+n_bins_hist = len(Gsingle)
+pch_all = np.zeros((n_bins_hist, len(list_of_g_out)))
+param = np.zeros((10, len(list_of_g_out)))
+
+for i, corr in enumerate(list_of_g_out):
+    Gsingle = getattr(G, corr + '_averageX')
+    pch_all[:, i] = Gsingle[:,1] # your chosen range for fitting""" + """
+"""+ param_str + """
+
+psf = list(np.reshape(np.transpose(param[7:9,:]), (2*len(list_of_g_out))))
+
+fit_info = np.asarray([True, False, True, False, False, False, False, False, False, False]) # use 1 for parameters that have to be fitted, 0 otherwise
+global_param = np.asarray([True, True, False, False, False, False, False, False, False, False]) # use 1 for global parameters
+lBounds = np.asarray([1e-10, 1e-10, 1e-10, 1e-10, 0.0, 1e-12, 1e-12, 1e-12, 1e-12, 10.0]) # the lower bounds for the fit parameters
+uBounds = np.asarray([1e12, 1e12, 1e12, 1e12, 1e5, 1e12, 1e12, 1e12, 1e12, 1e12]) # the upper bounds for the fit parameters
+nparam = len(param) - 3
+
+fitresult = fit_pch(pch_all[0:""" + stop_idx + """], fit_info[0:nparam], param[0:nparam,:], psf=psf, fitfun=my_fit_fun, global_param=global_param[0:nparam], lBounds=lBounds[0:nparam], uBounds=uBounds[0:nparam], n_bins=param[nparam+2,0], minimization="relative")"""
+    
+    return string_to_return

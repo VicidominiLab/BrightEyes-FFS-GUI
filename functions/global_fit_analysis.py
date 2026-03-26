@@ -53,7 +53,10 @@ def make_fit_info(allfits, len_G, r, analysis):
     for f in range(Ntraces):
         # get data
         fit = allfits[f]
-        Gtemp = analysis.get_corr(fit.data)
+        chunks_off = analysis.settings.chunks_off
+        idx = np.nonzero(chunks_off)
+        idx = list(idx[0]) # list of indices of good chunks
+        Gtemp = analysis.get_corr(fit.data).average(idx)
         G[:,f] = Gtemp[:,1]
         Gstd = Gtemp[:, 2] + 1e-10 # convert standard deviation to weights
         weights[:,f] = 1 / Gstd**2
@@ -83,7 +86,10 @@ def make_fit_info_global_pch(allfits, len_hist, r, analysis):
         param[:, i] = fit.startvalues[0:7]  # c1, c2, q1, q2, bg, btime, dV0, w0, SP, n_bins
         psf[2*i:2*i+2] = fit.startvalues[7:9]
         n_bins = fit.startvalues[9]
-        hist_temp = analysis.get_corr(fit.data)
+        chunks_off = analysis.settings.chunks_off
+        idx = np.nonzero(chunks_off)
+        idx = list(idx[0]) # list of indices of good chunks
+        hist_temp = analysis.get_corr(fit.data).average(idx)
         hist[:,i] = hist_temp[:,1]
         minb = fit.minbound[0:7]
         maxb = fit.maxbound[0:7]
