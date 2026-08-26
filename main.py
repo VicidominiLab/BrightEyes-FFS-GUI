@@ -56,18 +56,18 @@ TO DO:
     pip install brighteyes_ffs
     pip install pyinstaller
     go to ffs_gui folder
-    execute pyinstaller main.spec
-    
+    execute python -m PyInstaller main.spec
+
     pip install "pydantic<2.0"
-  
+
 +-----------------------------------------------------------------------------+
-    
+
     old version:
     execute pyinstaller.exe --onefile --icon=files\facts_icon.png --windowed --paths=..\fcs_gui main.py
     make sure .ui is converted to .py: pyuic5 brighteyes_ffs_3.ui -o pyqt_gui_brighteyes_ffs.py
                                         pyuic5 -x AnalysisDesign.ui -o AnalysisDesign.py
-                                        
-          
+
+
     dependencies:
         numpy
         pyqt5
@@ -80,11 +80,11 @@ TO DO:
         if analysis_settings not found:
             import sys
             sys.path.insert(0,'/path/to/mod_directory')
-            
+
         opencv-python
         imutils
         scikit-image
-    
+
 """
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidgetItem, QMessageBox, QSplashScreen
@@ -101,6 +101,8 @@ import time
 import datetime
 import subprocess
 import copy
+import shutil
+from pathlib import Path
 
 import qdarkstyle
 
@@ -122,25 +124,28 @@ from functions.appearance import appearance as ap
 from functions.fitmodels import convert_string_2_start_values, list_of_fit_models, get_fit_model_from_name
 from functions.correlation_functions import list_of_correlation_functions, get_correlation_object_from_name
 from functions.calc_correlations_wrapper import calc_g_wrapper
+from functions.jupyterlib import open_notebook_in_jupyterlab
 from functions.global_fit_analysis import make_fit_info, make_fit_info_global_pch
-from functions.load_ffs_files import open_image, open_image_dialog, open_ffs, open_ffslib, check_file_name
+from functions.load_ffs_files import open_image, open_image_dialog, open_ffs, open_ffslib, check_file_name, get_dwell_time_user_input
 from functions.session_to_notebook import convert_session_to_notebook, plot_session_in_notebook
 from functions.button_label import button_label
 
 from brighteyes_ffs.fcs_gui.load_ffs_metadata import load_ffs_metadata
 from brighteyes_ffs.fcs_gui.restore_session import savelib, restorelib, save_ffs
 from brighteyes_ffs.fcs_gui.timetrace_end import timetrace_end
-from brighteyes_ffs.fcs_gui.session_to_excel import lib2excel
+from brighteyes_ffs.fcs_gui.session_to_excel import lib2excel, corr2excel
 
 from brighteyes_ffs.fcs.fcs2corr import Correlations
 from brighteyes_ffs.fcs.get_det_elem_from_array import get_elsum
-from brighteyes_ffs.fcs.fcs_fit import fcs_fit
+from brighteyes_ffs.fcs.fcs_fit import fcs_fit, fit_corr
+from brighteyes_ffs.fcs.mem_fit import mem_fit_free_diffusion
 from brighteyes_ffs.fcs.fcs2difftime import g2difftime
 from brighteyes_ffs.fcs.imsd import fcs2imsd
 from brighteyes_ffs.fcs.extract_spad_data import extract_spad_data
 from brighteyes_ffs.fcs.filter_g import check_chunks_from_g_obj
 from brighteyes_ffs.fcs.plot_fingerprint import plot_fingerprint_airyscan, plot_fingerprint_luminosa
 from brighteyes_ffs.fcs.extract_spad_data_kw import keyword_2_ch
+from brighteyes_ffs.fcs.meas_to_count import mat2h5, czi2h5
 
 from brighteyes_ffs.pch.pch_fit import fit_pch
 
@@ -177,6 +182,8 @@ def default_settings(self):
     self.filePath = '' # path (including file name) to the .ffs file to store sessions
     self.FCSFolderName = 'C:\\Users\\Me\\My fcs folder'
     self.FCSFileName = 'My fcs file'
+    self.jupyter_location = None
+    self.current_corrs = []
     self.ui.fitModel_dropdown.clear()
     self.ui.fitModel_dropdown.addItems(list_of_fit_models())
     self.ui.corrs_dropdown.clear()
@@ -189,19 +196,19 @@ def update_plots(self, updateAll=[True, True, True, True], updatechunks=True):
     if updatechunks:
         print('update update_chunks')
         update_chunks(self)
-        
+
     if updateAll[0]:
         print('update plot_image')
         plot_image(self)
-        
+
     if updateAll[1]:
         print('update update_timetrace')
         update_timetrace(self, file)
-        
+
     if updateAll[2]:
         print('update update_fingerprint')
         update_fingerprint(self, file)
-        
+
     if updateAll[3]:
         print('update update_analysis')
         update_analysis(self, file)
@@ -251,8 +258,8 @@ def plot_image(self):
                 self.ui.image_widget.canvas.axes.plot(x, y, linewidth=lw, color=rcolor)
     self.ui.image_widget.canvas.draw()
     self.ui.imageName_button.setText(imageName[0:40] + '\n' + str(imageNr+1) + '/' + str(Nimages))
-    
-    
+
+
     if imageObj is not None:
         mdata = imageObj.print_image_metadata()
         self.ui.imageInfo_label.setText(mdata)
@@ -272,23 +279,23 @@ def plot_difflaw(self):
                 return
             if model.model not in ['Maximum entropy method free diffusion', 'Flow heat map', 'Model-free displacement analysis', 'Mean squared displacement', 'Asymmetry heat map']:
                 param = model.param_names
-                
+
                 tau_found, N_found, SP_found = True, True, True
-                
+
                 # find index of tau
                 ind = [idx for idx in range(len(param)) if 'Tau' in param[idx]]
                 if len(ind) < 1:
                     tau_found = False
                 else:
                     idxtau = ind[0]
-                
+
                 # find index of N
                 ind = [idx for idx in range(len(param)) if 'N' in param[idx]]
                 if len(ind) < 1:
                     N_found = False
                 else:
                     idxN = ind[0]
-                
+
                 # find index of Shape parameter
                 ind = [idx for idx in range(len(param)) if 'Shape parameter' in param[idx]]
                 if len(ind) < 1:
@@ -304,7 +311,7 @@ def plot_difflaw(self):
                     # w0 = convert_string_2_start_values([self.w0_edit.text()], analysis.NcurvesMode)
                     # w0 = w0[0,:]
                     w0 = 1e-3 * np.asarray(w0) # µm
-                    
+
                     difflawshow = str(self.ui.difflaw_dropdown.currentText())
                     if difflawshow == "Diffusion law" and tau_found:
                         # ------------- plot tau vs w2 ------------
@@ -378,13 +385,13 @@ def plot_difflaw(self):
                             csize = analysis.settings.chunksize
                             splits = np.arange(0, (Nchunks+1)*csize, csize) # s
                             chunks_off = analysis.settings.chunks_off
-                            
+
                             y = tt[0:timetrace_end(tt),:]
                             x = np.arange(0, duration, )
-                            
+
                             if elements is None or len(elements) != len(Nfit):
                                 return
-                            
+
                             pcr = np.zeros(len(elements))
                             for idx_el, element in enumerate(elements):
                                 try:
@@ -411,8 +418,8 @@ def plot_difflaw(self):
                             self.ui.difflaw_widget.canvas.figure.tight_layout()
                             self.ui.difflaw_widget.canvas.draw()
                             return
-                           
-            
+
+
             elif model.model == 'Flow heat map':
                 # flow heat map
                 try:
@@ -420,11 +427,11 @@ def plot_difflaw(self):
                 except:
                     showdialog('Warning', 'Flow heat map analysis not possible.', 'Calculate all cross-correlations for flow analysis first.')
                     return
-                
+
                 if heatmap is None or columnNotFound:
                     showdialog('Warning', 'Flow heat map analysis not possible.', 'Calculate all cross-correlations for flow analysis first.')
                     return
-                
+
                 self.ui.difflaw_widget.canvas.axes.imshow(np.flipud(heatmap), cmap='PiYG')#, vmin=-np.max(np.abs(heatmap))*0.7, vmax=np.max(np.abs(heatmap)))
                 phi = np.linspace(0, 2*np.pi, 360)
                 R = len(heatmap) / 2
@@ -441,7 +448,7 @@ def plot_difflaw(self):
                 self.ui.difflaw_widget.canvas.axes.set_axis_off()
                 self.ui.difflaw_widget.canvas.draw()
                 return
-            
+
             elif model.model == 'Asymmetry heat map':
                 try:
                     heatmap, data_not_found = fit.fitresults_asymmetrymap()
@@ -457,14 +464,14 @@ def plot_difflaw(self):
                 self.ui.difflaw_widget.canvas.axes.set_axis_off()
                 self.ui.difflaw_widget.canvas.draw()
                 return
-            
+
             elif model.model == 'Model-free displacement analysis':
                 try:
                     dtimes, corrv = fit.fitresults_mfda()
                 except:
                     showdialog('Warning', 'Model-free displacement analysis not possible.', 'Calculate all cross-correlations to use this analysis.')
                     return
-                
+
                 corrv /= np.sum(corrv)
                 corrv = (corrv * 125)**2
                 xsum = 0
@@ -505,14 +512,14 @@ def plot_difflaw(self):
                 self.ui.difflaw_widget.canvas.axes.tick_params(axis='both', which='major', labelsize=6)
                 self.ui.difflaw_widget.canvas.draw()
                 return
-            
+
             elif model.model == 'Mean squared displacement':
                 try:
                     tau, var, varfit = fit.fitresults_msd()
                 except:
                     showdialog('Warning', 'Mean squared displacement analysis not possible', 'Calculate all cross-correlations to use this analysis.')
                     return
-                
+
                 self.ui.difflaw_widget.canvas.axes.scatter(1e3*tau, var, c='red', marker='o', s=30, edgecolors='k')
                 self.ui.difflaw_widget.canvas.axes.plot(1e3*tau, varfit, c='k')
                 self.ui.difflaw_widget.canvas.axes.set_xlabel('Time (ms)', fontsize=7)
@@ -520,7 +527,7 @@ def plot_difflaw(self):
                 self.ui.difflaw_widget.canvas.axes.tick_params(axis='both', which='major', labelsize=6)
                 self.ui.difflaw_widget.canvas.draw()
                 return
-                
+
             else:
                 # MEM method
                 Gsingle = analysis.get_corr()
@@ -530,7 +537,7 @@ def plot_difflaw(self):
                 except:
                     showdialog('Warning', 'MEM analysis not possible', 'Calculate autocorrelations to use this analysis.')
                     return
-                
+
                 for i in range(np.shape(allfitresults)[1]):
                     color=color_from_map(np.mod(i, np.shape(allfitresults)[1]), startv=0, stopv=np.shape(allfitresults)[1]+1, cmap='gist_earth')
                     self.ui.difflaw_widget.canvas.axes.scatter(tauD, allfitresults[:,i], color=color, edgecolors=color, alpha=0.7, zorder=2, s=6)
@@ -549,7 +556,7 @@ def plot_difflaw(self):
     self.ui.difflaw_widget.canvas.axes.tick_params(axis='both', which='major', labelsize=6)
     self.ui.difflaw_widget.canvas.axes.set_xlabel('w0^2 (um^2)', fontsize=7)
     self.ui.difflaw_widget.canvas.axes.set_ylabel('Diffusion time (ms)', fontsize=7)
-    self.ui.difflaw_widget.canvas.figure.tight_layout()                
+    self.ui.difflaw_widget.canvas.figure.tight_layout()
     self.ui.difflaw_widget.canvas.draw()
 
 def update_timetrace(self, file):
@@ -567,7 +574,7 @@ def update_timetrace(self, file):
             Nchunks = analysis.num_chunks(duration)
             CorrSettings = analysis.settings
             csize = CorrSettings.chunksize
-            splits = np.arange(0, (Nchunks+1)*csize, csize)
+            splits = np.arange(Nchunks+1) * csize
             chunks_off = CorrSettings.chunks_off
             y = tt[0:timetrace_end(tt),:]
             x = np.arange(0, duration, duration/len(y))
@@ -589,6 +596,8 @@ def update_timetrace(self, file):
                     detEl = 20-9
                 elif N == 32:
                     detEl = 0
+                elif N == 49:
+                    detEl = 24
                 else:
                     detEl = get_elsum(int(np.sqrt(N)), 0)
                 yout = yfloat[:, detEl]
@@ -611,12 +620,20 @@ def update_timetrace(self, file):
                         detEl = [i for i in rings[r]]
                         for det in detEl:
                             yout[:, r] += yfloat[:, det]
+                elif N == 49:
+                    rings = [keyword_2_ch["prismcentral"], keyword_2_ch["prismsum3"], keyword_2_ch["prismsum5"], keyword_2_ch["prismsum7"]]
+                    Nrings = len(rings)
+                    yout = np.zeros((Nt, Nrings))
+                    for r in range(Nrings):
+                        detEl = [i for i in rings[r]]
+                        for det in detEl:
+                            yout[:, r] += yfloat[:, det]
                 else:
                     rings = [keyword_2_ch["central"], keyword_2_ch["sum3"], keyword_2_ch["sum5"]]
                     Nrings = len(rings)
                     yout = np.zeros((Nt, Nrings))
                     for r in range(Nrings):
-                        detEl = [i for i in rings[r]]
+                        detEl = [i for i in rings[r] if i < N]
                         for det in detEl:
                             yout[:, r] += yfloat[:, det]
             if q == "All individually":
@@ -627,7 +644,7 @@ def update_timetrace(self, file):
     else:
         plot_timetrace(self, self.xtrace, self.ytrace)
 
-  
+
 def plot_timetrace(self, x, y, splits=None, chunks_off=None):
     print('plot time trace')
     yShape = np.shape(y)
@@ -642,7 +659,7 @@ def plot_timetrace(self, x, y, splits=None, chunks_off=None):
     xmin = np.min(x)
     xmax = np.max(x)
     ymin = np.max((ymin, 0))
-    
+
     self.ui.timetrace_widget.canvas.axes.clear()
     self.ui.timetrace_widget.canvas.axes.set_facecolor((1, 1, 1))
     for i in range(Nplots):
@@ -652,7 +669,7 @@ def plot_timetrace(self, x, y, splits=None, chunks_off=None):
     self.ui.timetrace_widget.canvas.axes.set_xlabel('Time (s)', fontsize=7)
     self.ui.timetrace_widget.canvas.axes.set_ylabel('Photon flux (kHz)', fontsize=7)
     self.ui.timetrace_widget.canvas.axes.tick_params(axis='both', which='major', labelsize=6)
-    
+
     # plot vertical chunk lines
     if splits is not None:
         if len(splits) <= 101:
@@ -688,14 +705,15 @@ def update_analysis(self, file):
     self.ui.correlations_widget.canvas.axes.set_facecolor((1, 1, 1))
     self.ui.correlations_widget.canvas.axes2.clear()
     self.ui.correlations_widget.canvas.axes2.set_facecolor((1, 1, 1))
-    
+    self.current_corrs = []
+
     plotcolor = 0
     xscaling = 'log'
     yscaling = 'linear'
     ylabel = 'G'
     xlabel = 'Lag time (s)'
     ylabel_res = 'Residuals'
-    
+
     if file is not None:
         analysis = file.get_analysis()
         if analysis is not None:
@@ -711,7 +729,7 @@ def update_analysis(self, file):
             ymaxfit = ymin
             fitfound = False
             Nplots = 0
-            
+
             elements = analysis.settings.elements # central, sum3x3, sum5x5
             algorithm = analysis.settings.algorithm # central, sum3x3, sum5x5
             corrshow = str(self.ui.showchunkscorr_dropdown.currentText())
@@ -738,8 +756,9 @@ def update_analysis(self, file):
                         xmax = np.max((xmax, np.max(x)))
                         ymin = np.min((ymin, np.min(y)))
                         ymax = 1.1*np.max((ymax, np.max(y)))
-                        
+
                         self.ui.correlations_widget.canvas.axes.scatter(x, y,label=element, s=15, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
+                        self.current_corrs.append(np.column_stack((x, y)))
                         plotcolor += 1
                         Nplots += 1
                         xscaling = 'linear'
@@ -758,10 +777,11 @@ def update_analysis(self, file):
                             #self.correlations_widget.canvas.axes.plot(x[1:], y[1:]+std[1:])
                             #self.correlations_widget.canvas.axes.plot(x[1:], y[1:]-std[1:])
                         scatter_handle = self.ui.correlations_widget.canvas.axes.scatter(x[1:], y[1:], s=10, alpha=0.7, label=element, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
+                        self.current_corrs.append(np.column_stack((x[1:], y[1:])))
                         self.scatter_handles.append(scatter_handle)  # Store scatter handle
                         plotcolor += 1
                         Nplots += 1
-                    
+
                     # check for fit results
                     if fits is not None and corrshow == "Show average all active chunks":
                         fit = fits.fit_all_curves # fit contains list of the 3 spotvar fits
@@ -780,7 +800,8 @@ def update_analysis(self, file):
                                         fit_handle = self.ui.correlations_widget.canvas.axes.plot(x[start:stop], y[start:stop] - fitres, linewidth=1.0, color=color_from_map(j, 0, len(fit)+1, 'gist_earth'))
                                         self.ui.correlations_widget.canvas.axes2.plot(x[start:stop], fitres, linewidth=0.7, color=color_from_map(j, 0, len(fit)+1, 'gist_earth'))
                                         self.fit_handles.append(fit_handle)  # Store fit handle
-            
+                                        self.current_corrs.append(np.column_stack((x[start:stop], y[start:stop] - fitres)))
+
             if fitfound:
                 xmin = x[start]
                 xmax = x[np.min((stop, len(x)))-1]
@@ -795,7 +816,7 @@ def update_analysis(self, file):
                     ymin = 1e-5
                 xscaling = 'linear'
                 yscaling = 'log'
-        
+
             self.ui.correlations_widget.canvas.axes.set_xlim([xmin, xmax])
             self.ui.correlations_widget.canvas.axes2.set_xlim([xmin, xmax])
             if Nplots > 0 and Nplots < 13:
@@ -808,28 +829,28 @@ def update_analysis(self, file):
                 if legend is not None:
                     for legline in legend.get_lines():
                         legline.set_picker(True)  # Enable picking for legend lines
-                    
+
                     # Connect the pick event to the on_legend_click method
                     self.ui.correlations_widget.canvas.mpl_connect("pick_event", self.on_legend_click)
 
             if ymin is not np.nan and ymax is not np.nan:
                 self.ui.correlations_widget.canvas.axes.set_ylim([ymin, np.max((ymin+0.001, ymax))])
-    
-    
+
+
     self.ui.correlations_widget.canvas.axes.set_xscale(xscaling)
     self.ui.correlations_widget.canvas.axes.set_yscale(yscaling)
     self.ui.correlations_widget.canvas.axes.set_ylabel(ylabel, fontsize=7)
     self.ui.correlations_widget.canvas.axes.tick_params(axis='both', which='major', labelsize=6)
     self.ui.correlations_widget.canvas.axes.tick_params(axis='both', which='minor', labelsize=6)
-    
+
     self.ui.correlations_widget.canvas.axes2.set_xscale(xscaling)
     self.ui.correlations_widget.canvas.axes2.set_xlabel(xlabel, fontsize=7)
     self.ui.correlations_widget.canvas.axes2.set_ylabel(ylabel_res, fontsize=7)
     self.ui.correlations_widget.canvas.axes2.tick_params(axis='both', which='major', labelsize=6)
     self.ui.correlations_widget.canvas.axes2.tick_params(axis='both', which='minor', labelsize=6)
-    
+
     self.ui.correlations_widget.canvas.draw()
-    
+
 
 def remove_image(self, imageNr='active'):
     currentImage = self.ffslib.active_image
@@ -884,6 +905,8 @@ def update_fingerprint(self, file):
     if fp is not None and duration is not None:
         if len(fp) == 25:
             plot_fingerprint(self, np.reshape(fp, (5,5)) / duration / 1000) # kHz
+        elif len(fp) == 49:
+            plot_fingerprint(self, np.reshape(fp, (7,7)) / duration / 1000) # kHz
         elif len(fp) == 32 or len(fp) == 23:
             # airyscan or luminosa
             plot_fingerprint(self, fp / duration / 1000)
@@ -907,12 +930,13 @@ def update_xprint(self, xprint):
     ind = [idx for idx in range(len(param)) if xprint in param[idx]]
     if len(ind) < 1:
         return
-    
+
     allfitresults = fit.fitresults(returntype="array")
     fit = np.squeeze(allfitresults[ind, :])
-    
-    if len(fit) == 25:
-        plot_fingerprint(self, np.reshape(fit, (5,5)))
+
+    if len(fit) == 25 or len(fit) == 49:
+        n_ch_sqrt = int(np.sqrt(len(fit)))
+        plot_fingerprint(self, np.reshape(fit, (n_ch_sqrt,n_ch_sqrt)))
     elif len(fit) == 32 or len(fit) == 23:
         plot_fingerprint(self, fit)
 
@@ -991,7 +1015,7 @@ def turn_off_chunks_from_clipboard(self):
     for i in range(num_chunks):
         if i >= len(chunks_on_clip) or chunks_on_clip[i]:
             updated_chunks[i] = 1
-            
+
     corrsettings.update(chunks_off=updated_chunks, analysis=analysis)
     c = self.ui.chunk_spinBox.value()
     update_chunk_checkbox(self, bool(updated_chunks[c]))
@@ -1026,7 +1050,7 @@ def plot_fingerprint(self, fp):
         self.cbar.set_ticklabels([f"{np.min(fp):.0f}", f"{np.max(fp):.0f}"], fontsize=6)
         self.ui.fingerprint_widget.canvas.draw()
         return
-    
+
     if len(fp) == 23:
         sx, sy, color_code = plot_fingerprint_luminosa(fp, plot=False)
         for x, y, c in zip(sx, sy, color_code):
@@ -1036,7 +1060,7 @@ def plot_fingerprint(self, fp):
         self.cbar.set_ticklabels([f"{np.min(fp):.0f}", f"{np.max(fp):.0f}"], fontsize=6)
         self.ui.fingerprint_widget.canvas.draw()
         return
-    
+
     im = self.ui.fingerprint_widget.canvas.axes.imshow(fp, cmap='inferno')
     im.set_clim(vmin=np.min(fp), vmax=np.max(fp))
     if self.plot_colorbar:
@@ -1053,7 +1077,7 @@ def plot_fingerprint(self, fp):
         # Set ticks and labels
         self.cbar.set_ticks([np.min(fp), np.max(fp)])
         self.cbar.set_ticklabels([f"{np.min(fp):.0f}", f"{np.max(fp):.0f}"], fontsize=6)
-    
+
     self.cbar.set_ticklabels([f"{np.min(fp):.0f}", f"{np.max(fp):.0f}"], fontsize=6)
     self.ui.fingerprint_widget.canvas.draw()
 
@@ -1065,6 +1089,24 @@ def open_ffs_file(self, buttonNr, filepath=None):
     currentFileNr = self.firstFile + buttonNr
     Nfiles = nrfiles(self)
     if fname is not None and currentFileNr <= Nfiles:
+        # check if file needs to be converted first
+        if fname.endswith(".czi"):
+            fname_h5 = fname[:-4] + '.h5'
+            if not os.path.exists(fname_h5):
+                print('converting czi file')
+                dwell_time_us = get_dwell_time_user_input(self)
+                if dwell_time_us is None:
+                    return
+                fname = czi2h5(fname, dwell_time_us)
+            fname = fname_h5
+
+        elif fname.endswith(".mat"):
+            fname_h5 = fname[:-4] + '.h5'
+            if not os.path.exists(fname_h5):
+                print('converting mat file')
+                fname = mat2h5(fname)
+            fname = fname_h5
+
         # FFS file found --> check for meta data
         try:
             md = load_ffs_metadata(fname)
@@ -1084,7 +1126,7 @@ def open_ffs_file(self, buttonNr, filepath=None):
         [label, dummy] = button_label(FFSfileObj)
         FFSfileObj.label = label
         currentImage.add_ffs_file(FFSfileObj)
-        
+
         if fname[-4:] == '.csv':
             # add correlation
             currentFile = currentImage.get_ffs_file(currentImage.num_files - 1)
@@ -1127,7 +1169,7 @@ def exportlib_xlsx(self):
 def clean_session(self):
     default_settings(self)
     update_buttons(self)
-    
+
 def showdialog(title, message, extraInfo):
    msg = QMessageBox()
    msg.setIcon(QMessageBox.Information)
@@ -1181,7 +1223,7 @@ def getanalysis(self, mode=-1):
     if file is None:
         return None
     return file.get_analysis(mode)
-    
+
 def getfit(self, mode="active"):
     # return fit object from active analysis object with number "mode".
     # By default return active fit object
@@ -1249,20 +1291,26 @@ def calc_g_new_thread(self, file, anSettings):
     print('start calc G')
     print(file.fname)
     print(anSettings.algorithm)
-    G, data = calc_g_wrapper(self, file, anSettings)    
+    G, data = calc_g_wrapper(self, file, anSettings)
     self.G = G
     self.data = data
     self.finishedG = True
 
-def perform_fit_new_thread(self, G, tau, fitf, farr, startv, minb, maxb, weights, algorithm='fcs'):
+def perform_fit_new_thread(self, G, tau, fitf, farr, startv, minb, maxb, weights, param_factors10, global_param=None, algorithm='fcs'):
+    if np.isnan(weights).any():
+        weights = 1
     #try:
     if algorithm == 'pch':
         nparam = len(startv) - 3
-        fitresult = fit_pch(G, farr[0:nparam], startv[0:nparam], psf=list(startv[nparam:nparam+2]), fitfun=fitf, lBounds=minb[0:nparam], uBounds=maxb[0:nparam], weights=weights, n_bins=startv[nparam+2], minimization='absolute')
+        fitresult = fit_pch(G, farr[0:nparam], startv[0:nparam], psf=list(startv[nparam:nparam+2]), fitfun=fitf, lBounds=minb[0:nparam], uBounds=maxb[0:nparam], weights=weights, n_bins=startv[nparam+2], minimization='relative')
         startv[0:nparam] = fitresult.x
         fitresult.x = startv
     else:
-        fitresult = fcs_fit(G, tau, fitf, farr, startv, minb, maxb, -1, 0, 0, weights)
+        if fitf == 'mem_fit_free_diffusion' or fitf == mem_fit_free_diffusion:
+            fitresult = fcs_fit(G, tau, fitf, farr, startv, minb, maxb, -1, 0, 0, weights)
+        else:
+            fitresult = fit_corr(G, tau, farr, startv, weights=weights, global_param=global_param, lower_bounds=minb, upper_bounds=maxb, param_factors10=param_factors10, fitmodel=fitf)
+
     #except:
       #  showdialog('Warning', 'Fit unsuccessful.', 'Fit residuals not finite in initial point.')
 #        fitresult = None
@@ -1277,19 +1325,19 @@ def set_fit_modelbox(self, value):
 def update_fit_model(self, values=None, fitbool=None, fitrange=None):
     print('updatefitmodel')
     # values: fitted values for all 11 parameters (7 for circFCS)
-    
+
     acbox = analysis_checkboxes(self)
     aedit = analysis_edits(self)
     Nwidgets = len(acbox) - 1 # last checkbox is weights
     modelname = str(self.ui.fitModel_dropdown.currentText())
     fitmodelList = list_of_fit_models()
-    
+
     if modelname not in fitmodelList:
         modelname = fitmodelList[0]
         values = None
-    
+
     model = get_fit_model_from_name(modelname)
-    
+
     paramNamesAll = ['None' for i in range(Nwidgets)]
     paramFittableAll = [False for i in range(Nwidgets+1)]
     paramDefvaluesAll = ['NaN' for i in range(Nwidgets)]
@@ -1298,21 +1346,21 @@ def update_fit_model(self, values=None, fitbool=None, fitrange=None):
     paramNames = model.param_names
     paramFittable = model.param_fittable
     paramDefvalues = np.asarray(model.param_def_values)
-    
+
     # use input values if given
     if values is not None:
         paramDefvalues = values
     paramDefvaluesAll[0:len(paramDefvalues)] = paramDefvalues
-    
+
     if fitbool is not None:
         fitboolAll[0:len(paramNames)] = fitbool[0:len(paramNames)]
         fitboolAll[-1] = fitbool[-1] # check for weighted fit
     paramNamesAll[0:len(paramNames)] = paramNames
-    
+
     if paramFittable is not None:
         paramFittableAll[0:len(paramFittable)] = paramFittable
-    
-    
+
+
     for i in range(Nwidgets):
         acbox[i].setText(paramNamesAll[i])
         acbox[i].setChecked(fitboolAll[i])
@@ -1322,7 +1370,7 @@ def update_fit_model(self, values=None, fitbool=None, fitrange=None):
             aedit[i].setEnabled(False)
         else:
             aedit[i].setEnabled(True)
-            
+
     acbox[Nwidgets].setText('Weighted fit')
     acbox[Nwidgets].setChecked(fitboolAll[Nwidgets])
     # update fit range
@@ -1367,13 +1415,13 @@ def update_fit_analysis(self, ftype='new'):
             analysis.update_fit_analysis(model, fitarray, startvalues, fitrange=fitrange)
         perform_fit(self)
         update_buttons(self)
-        
+
 
 def perform_fit(self, updateAll=False):
     print('perform fit')
     # if updateAll is true, then all fits for the current analysis are redone
     # necessary when a chunk is turned off or on
-    
+
     analysis = getanalysis(self)
     if updateAll:
         fitNr = list(range(analysis.num_fits))
@@ -1391,7 +1439,7 @@ def perform_fit(self, updateAll=False):
             # get data
             fit = allfits[f]
             G = analysis.get_corr(fit.data).average(analysis.corrs.good_chunks)
-            
+
             r = fit.fitrange
             fitmodel = get_fit_model_from_name(fit.fitfunction_label)
             if fitmodel is None:
@@ -1399,15 +1447,16 @@ def perform_fit(self, updateAll=False):
             fitf = fitmodel.fitfunction_name
             farr = fit.fitarray
             startv = fit.startvalues
-            
+
             if 'global fit' in fitmodel.model:
                 # break loop of individudal fits and perform global fit
                 break
-            
+
             minb = fit.minbound
-            
+
             print(startv)
             maxb = fit.maxbound
+            param_factors10 = fit.param_factors10
             stop = np.min((r[1], len(G)))
             start = np.min((stop - 1, r[0]))
             start = np.max((0, start))
@@ -1419,16 +1468,25 @@ def perform_fit(self, updateAll=False):
                 print('new fit performing')
                 if farr[-1] == 1 and np.shape(G)[1] > 2 and np.min(G[:, -1]) > 0:
                     # weighted fit
-                    weights = 1 / (G[start:stop, -1]**2) # convert standard deviation to variance
-                    weights /= np.min(weights)
-                    weights = np.clip(weights, 1, 10) # clip excessive weights
+                    std = G[start:stop, -1]
+                    variance = std**2
+                    weights = np.empty_like(variance, dtype=float)
+                    valid = variance > 0
+                    # Calculate inverse-variance weights only where division is safe
+                    weights[valid] = 1.0 / variance[valid]
+                    # Normalize and clip the finite weights
+                    if np.any(valid):
+                        weights[valid] /= np.min(weights[valid])
+                        weights[valid] = np.clip(weights[valid], 1, 100)
+                    # Assign the maximum weight where the standard deviation is zero
+                    weights[~valid] = 100.0
                 farr = farr[0:-1]
                 if G is not None:
                     if fitmodel.model == 'Maximum entropy method free diffusion':
                         startv = startv[-7:]
                     startv = np.clip(startv, minb, maxb)
                     self.finishedG = False
-                    th = threading.Thread(target=perform_fit_new_thread, args=(self, G[start:stop, 1], G[start:stop, 0], fitf, farr, startv, minb, maxb, weights, analysis.settings.algorithm))
+                    th = threading.Thread(target=perform_fit_new_thread, args=(self, G[start:stop, 1], G[start:stop, 0], fitf, farr, startv, minb, maxb, weights, param_factors10, None, analysis.settings.algorithm))
                     # Start the thread
                     th.start()
                     progressTxtStart = "Please wait, performing fit.\nThis may take a while."
@@ -1463,13 +1521,13 @@ def perform_fit(self, updateAll=False):
                                     # newv[i] = fitresult.x[j]
                                     # j += 1
                         fit.update(fitresult=fitresult.fun, startvalues=newv)
-                   
-                    
+
+
             elif fitmodel.model == 'Model-free displacement analysis':
                 z = []
                 difftime, corrv = g2difftime(G[start:stop,:], smoothing=int(startv[0]))
                 fit.update(fitresult=np.atleast_1d(np.asarray([difftime, corrv])))
-            
+
             else:
                 # flow heat map
                 z = []
@@ -1479,7 +1537,7 @@ def perform_fit(self, updateAll=False):
                     fit.update(fitresult=z)
                 except:
                     pass
-        
+
         if fitmodel.model == 'Mean squared displacement':
             print('Mean squared displacement')
             G3d, tau = analysis.get_corr3D()
@@ -1493,14 +1551,14 @@ def perform_fit(self, updateAll=False):
                 # get data
                 fit = allfits[f]
                 fit.update(fitresult=np.atleast_1d(np.asarray([tau, var])), startvalues=fitres)
-        
+
         # perform global fit
         if 'global fit' in fitmodel.model:
             if 'PCH' in fitmodel.model:
                 # PCH analysis
                 hist_all, start, stop, param, fit_info, psf, n_bins, minb, maxb, n_hist = make_fit_info_global_pch(allfits, len(G), r, analysis)
                 global_param = fitmodel.global_param
-                fitresult = fit_pch(hist_all[start:stop], fit_info, param, psf, minb, maxb, weights=1, n_bins=n_bins, global_param=global_param, fitfun='fitfun_pch_nc_global', minimization='absolute')
+                fitresult = fit_pch(hist_all[start:stop], fit_info, param, psf, minb, maxb, weights=1, n_bins=n_bins, global_param=global_param, fitfun='fitfun_pch_nc_global', minimization='relative')
                 for f in range(n_hist):
                     fit = allfits[f]
                     n_param = len(fitresult.x[:,f])
@@ -1514,21 +1572,38 @@ def perform_fit(self, updateAll=False):
                 tau = G[:, 0]
                 G, start, stop, param, fit_info, minb, maxb, Ntraces, weights = make_fit_info(allfits, len(G), r, analysis)
                 if allfits[0].fitarray[-1] == 1:
-                    weights_min = np.min(weights[weights>0])
-                    weights = np.clip(weights/weights_min, 0, 100) # clip excessive weights
-                    weights = weights[start:stop,:]
+                    if np.sum(weights) == 0:
+                        weights = 1
+                    else:
+                        weights_min = np.min(weights[weights>0])
+                        weights = np.clip(weights/weights_min, 1, 100) # clip excessive weights
+                        weights = weights[start:stop,:]
                 else:
                     weights = 1
                 try:
                     global_param = fitmodel.global_param
-                    fitresult = fcs_fit(G[start:stop,:], tau[start:stop], fitf, fit_info, param, minb, maxb, -1, global_param=global_param, weights=weights)
-                    for f in range(Ntraces):
-                        fit = allfits[f]
-                        fit.update(fitresult=fitresult.fun[:,f], startvalues=fitresult.x[:,f])
+                    #fitresult = fit_corr(G[start:stop, :], tau[start:stop], fit_info, param, weights=weights, global_param=global_param, lower_bounds=minb, upper_bounds=maxb, param_factors10=fit.param_factors10, fitmodel=fitf)
+                    th = threading.Thread(target=perform_fit_new_thread, args=(self, G[start:stop, :], tau[start:stop], fitf, fit_info, param, minb, maxb, weights, fit.param_factors10, global_param, analysis.settings.algorithm))
+                    # Start the thread
+                    th.start()
+                    progressTxtStart = "Please wait, performing fit.\nThis may take a while."
+                    self.ui.progressBar_label.setText(progressTxtStart)
+                    self.update_progress_bar(0)
+                    while not self.finishedG:
+                        QtTest.QTest.qWait(50)
+                        self.ui.progressBar_label.setText(progressTxtStart)
+                    th.join()
+                    self.update_progress_bar(100, "Done.")
+
+                    if self.fitresult is not None:
+                        fitresult = self.fitresult
+                        for f in range(Ntraces):
+                            fit = allfits[f]
+                            fit.update(fitresult=fitresult.fun[:,f], startvalues=fitresult.x[:,f])
                 except:
                     showdialog('Warning', 'Fit unsuccessful.', 'Fit residuals not finite in initial point.')
                     return
-                  
+
 
 def copy_correlation(self):
     file = getfile(self)
@@ -1548,7 +1623,7 @@ def update_w0_diff(self):
     if analysis is not None and fit is not None:
         keep = self.ui.keepFixed_dropdown.currentText()
         w0 = self.ui.w0_edit.text() # nm
-        
+
         D = self.ui.D_edit.text() # µm^2/s
         data = convert_string_2_start_values([w0, D], analysis.n_curves_mode)
         self.w0 = data[0,:]
@@ -1581,7 +1656,7 @@ def update_w0_diff(self):
         for i, singlefit in enumerate(fit.fit_all_curves):
             singlefit.update(w0=data[0, i], D=data[1, i])
         plot_difflaw(self)
-        
+
 def update_diameter(self):
     fit = getfit(self)
     analysis = getanalysis(self)
@@ -1592,7 +1667,7 @@ def update_diameter(self):
         diameter = self.ui.diameter_edit.text() # nm
         visc = self.ui.visc_edit.text() # Pa.s
         T = self.ui.T_edit.text() # K
-        
+
         data = convert_string_2_start_values([w0, D, diameter, visc, T], analysis.n_curves_mode)
         # get three fitted tau values
         fitmodelname = fit.fit_all_curves[0].fitfunction_label
@@ -1604,7 +1679,7 @@ def update_diameter(self):
             #ind = [idx for idx in range(len(param)) if 'Tau' in param[idx]]
             #idx = ind[0]
             #allfitresults = fit.fitresults(returntype="array")
-            
+
             # convert tau to either w0 or D: 4 * D * tau = w0^2
             if calc == "Calculate diameter":     # d = fun(D, T, visc)
                 diameter = 1e9 * stokes_einstein(1e-12*data[1,:], data[4,:], data[3,:]) # nm
@@ -1626,9 +1701,10 @@ def update_diameter(self):
                 self.ui.T_edit.setText(Tstr)
             # update fit objects with diameter values
             #TODO
-        
+
 def update_buttons(self, updatechunks=True, updateOnlyButtonName=False):
     print('update buttons')
+    print('Version 2026-07-28')
     self.ui.notes_edit.setPlainText(self.ffslib.notes)
     self.setWindowTitle(f"BrightEyes-FFS - {self.filePath}" if self.filePath else "BrightEyes-FFS")
     Nfiles = nrfiles(self)
@@ -1644,10 +1720,11 @@ def update_buttons(self, updatechunks=True, updateOnlyButtonName=False):
             coords = file.metadata.coords
             if i == buttonNr:
                 # color this button
-                fButtons[i].setStyleSheet("background-color:" + ap("actbut"))
+                #fButtons[i].setStyleSheet("background-color:" + ap("actbut"))
+                fButtons[i].setChecked(True)
                 im = self.ffslib.get_image()
                 im.active_ffs = currentFileNr
-                
+
                 # update all file settngs
                 [filename, folder] = path2fname(file.fname)
                 strLen = 80
@@ -1658,14 +1735,14 @@ def update_buttons(self, updatechunks=True, updateOnlyButtonName=False):
                 self.ui.FCSFolderName_label.setText(folder)
                 self.ui.FCSFileName_label.setText(filename)
                 self.ui.FCSFolderName_label.setStyleSheet("color:" + ap("subtlecol"))
-                
+
                 self.ui.label_edit.setText(file.label)
                 self.ui.ycoord_edit.setText(str(coords[0]))
                 self.ui.xcoord_edit.setText(str(coords[1]))
-                
+
                 if updateOnlyButtonName:
                     return
-                
+
                 # update analysis menu
                 analysisTree = self.ui.correlations_treeWidget
                 analysisTree.clear()
@@ -1702,12 +1779,15 @@ def update_buttons(self, updatechunks=True, updateOnlyButtonName=False):
                                 j = 0
                                 outputString += " (fit param: "
                                 for ind in paramInd:
-                                    if fitarray[ind]:
-                                        outputString += paramNames[j][0:10] + ", "
+                                    try:
+                                        if fitarray[ind]:
+                                            outputString += paramNames[j][0:10] + ", "
+                                    except:
+                                        pass
                                     j += 1
                                 outputString = outputString[:-2]
                                 outputString += ")"
-                            
+
                         itemc = QTreeWidgetItem([outputString])
                         item.addChild(itemc)
                         if f == anSingle.active_fit and an == file.active_analysis:
@@ -1728,13 +1808,13 @@ def update_buttons(self, updatechunks=True, updateOnlyButtonName=False):
                             values = startv
                             fitbool = fitb
                             fitrange = fit.fitrange()
-                            
+
                 # update fit box
                 update_fit_model(self, values=values, fitbool=fitbool, fitrange=fitrange)
-                
+
                 # update diffusion law box
                 update_difflaw_texts(self)
-                
+
                 # update time trace, finger print, correlation plot
                 update_plots(self, [False, True, True, True], updatechunks=updatechunks)
             else:
@@ -1771,49 +1851,49 @@ def update_active_button(self):
 
 
 class BrightEyesFFS(QMainWindow):
-    
+
     def __init__(self, initialFile=None):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        
+
         # QMainWindow.__init__(self)
         # if getattr(sys, 'frozen', False):
         #     RELATIVE_PATH = os.path.dirname(sys.executable)
         # else:
         #     RELATIVE_PATH = os.path.dirname('main.py')
         # self._ui_path = RELATIVE_PATH
-        
+
         #loadUi(os.path.join(self._ui_path, 'brighteyes_ffs.ui'), self)
-        
+
         self.setWindowTitle("BrightEyes-FFS")
         self.setWindowIcon(QIcon('files/ffs_icon.ico') )
         default_settings(self)
         update_buttons(self)
-        
+
         ffsFilesButtons = file_buttons(self)
         for i in range(len(ffsFilesButtons)):
             button = ffsFilesButtons[i]
             button.clicked.connect(lambda state, x=i: self.activate_ffs_file(x))
-        
+
         self.ui.prevImage_button.clicked.connect(self.previous_image)
         self.ui.nextImage_button.clicked.connect(self.next_image)
         self.ui.imageName_button.clicked.connect(self.change_image_file)
-        
+
         self.ui.notes_edit.textChanged.connect(self.save_notes)
         self.ui.prevFCSfile_button.clicked.connect(self.previous_file)
         self.ui.nextFCSfile_button.clicked.connect(self.next_file)
         self.ui.saveLabel_button.clicked.connect(self.save_coords)
         self.ui.label_edit.textChanged.connect(self.save_label)
-        
-        
+
+
         self.ui.showElements_widget.clicked.connect(self.show_elements)
         self.ui.calcCorrCurrentFile_button.clicked.connect(self.add_corr_and_calc)
         self.ui.addToJoblist_button.clicked.connect(self.add_corr_to_joblist)
         self.ui.chunk_spinBox.valueChanged.connect(self.chunk_number_change)
         self.ui.chunkOn_checkBox.clicked.connect(self.chunk_checkbox_change)
         self.ui.showchunkscorr_dropdown.currentTextChanged.connect(self.show_chunks_corr_change)
-        
+
         self.ui.actionOpen_image.triggered.connect(self.open_image_file)
         self.ui.actionChange_image.triggered.connect(self.change_image_file)
         self.ui.actionSave_session.triggered.connect(self.save_session)
@@ -1821,19 +1901,20 @@ class BrightEyesFFS(QMainWindow):
         self.ui.actionOpen_session.triggered.connect(self.open_session)
         self.ui.actionNew_session.triggered.connect(self.new_session)
         self.ui.actionExport_results_to_Excel.triggered.connect(self.export_session_xlsx)
-        
-        
+        self.ui.actionExport_current_correlation_to_Excel.triggered.connect(self.export_corr_xlsx)
+
+
         self.ui.actionCurrent_fit.triggered.connect(self.remove_current_fit)
         self.ui.actionCurrent_correlation.triggered.connect(self.remove_current_analysis)
         self.ui.actionCurrent_FFS_file.triggered.connect(self.remove_current_ffs_file)
         self.ui.actionCurrent_Image.triggered.connect(self.remove_current_image)
-        
+
         self.ui.actionCopy_current_correlation.triggered.connect(self.copy_current_correlation)
         self.ui.actionCopy_current_fit_as_data.triggered.connect(self.use_current_fit_as_experimental_data)
         self.ui.actionPlot_in_Jupyter_Notebook.triggered.connect(self.plot_jupyter_notebook)
         self.ui.actionCreate_Jupyter_Notebook.triggered.connect(self.create_jupyter_notebook)
         self.ui.actionFilter_out_bad_chunks.triggered.connect(self.filter_out_bad_chunks)
-        
+
         self.ui.correlations_treeWidget.clicked.connect(self.show_analysis)
         self.ui.actionCorrelation.triggered.connect(self.calc_corr_active_file)
         self.ui.actionAllCorrelationsCurrentFile.triggered.connect(self.calc_corr_all_files)
@@ -1843,24 +1924,24 @@ class BrightEyesFFS(QMainWindow):
         self.ui.updateDiffLaw_button.clicked.connect(self.update_diffLaw)
         self.ui.updateDiffLawDiameter_button.clicked.connect(self.update_difflaw_diameter)
         self.ui.difflaw_dropdown.currentTextChanged.connect(self.difflaw_change)
-        
+
         self.ui.timetrace_widget.copyBadChunks.connect(self.copy_chunks_off_clipboard)
         self.ui.timetrace_widget.turnOffBadChunks.connect(self.paste_chunks_off_clipboard)
         self.ui.timetrace_widget.turnOnAllChunks.connect(self.turn_on_all_chunks)
         self.ui.timetrace_widget.filterBadChunks.connect(self.filter_out_bad_chunks)
-        
+
         self.ui.fingerprint_widget.showPhotons.connect(self.show_fingerprint)
         self.ui.fingerprint_widget.showN.connect(lambda: self.show_x_print(xprint='N'))
         self.ui.fingerprint_widget.showTau.connect(lambda: self.show_x_print(xprint='Tau'))
         self.ui.fingerprint_widget.showD.connect(lambda: self.show_x_print(xprint='D ('))
         self.ui.fingerprint_widget.showw0.connect(lambda: self.show_x_print(xprint='Beam waist'))
-        
+
         self.update_progress_bar(100)
-        
+
         if initialFile != 'None' and initialFile is not None:
-            
+
             open_ffs_file(self, 0, initialFile)
-            
+
             self.activate_ffs_file(0)
 
     def activate_ffs_file(self, buttonNr):
@@ -1878,7 +1959,7 @@ class BrightEyesFFS(QMainWindow):
         update_chunks(self)
         update_plots(self, updateAll = [True, False, False, False])
         update_buttons(self)
-    
+
     def previous_image(self):
         try:
             imageNr = self.ffslib.active_image
@@ -1889,7 +1970,7 @@ class BrightEyesFFS(QMainWindow):
             change_image(self)
         except:
             pass
-    
+
     def next_image(self):
         try:
             imageNr = self.ffslib.active_image
@@ -1900,7 +1981,7 @@ class BrightEyesFFS(QMainWindow):
             change_image(self)
         except:
             pass
-    
+
     def previous_file(self):
         buttonNr = self.activeFileButton - 1
         if buttonNr < 0:
@@ -1910,7 +1991,8 @@ class BrightEyesFFS(QMainWindow):
             self.activeFileButton = buttonNr
         self.ui.chunk_spinBox.setValue(0)
         update_buttons(self)
-    
+        update_plots(self, updateAll = [True, False, False, False])
+
     def next_file(self):
         buttonNr = self.activeFileButton
         newFileNr = self.firstFile + buttonNr + 1
@@ -1933,7 +2015,8 @@ class BrightEyesFFS(QMainWindow):
                 self.firstFile += 1
         self.ui.chunk_spinBox.setValue(0)
         update_buttons(self)
-    
+        update_plots(self, updateAll = [True, False, False, False])
+
     def save_label(self):
         # save label, (x,y) coordinates or both
         lb = self.ui.label_edit.text()
@@ -1941,7 +2024,7 @@ class BrightEyesFFS(QMainWindow):
         if currentFile is not None:
             currentFile.update(label=lb)
             update_buttons(self, updatechunks=False, updateOnlyButtonName=True)
-        
+
     def save_coords(self):
         # save label, (x,y) coordinates or both
         lb = self.ui.label_edit.text()
@@ -1950,25 +2033,25 @@ class BrightEyesFFS(QMainWindow):
         try:
             yc = int(yc)
         except:
-            yc = 0 
+            yc = 0
         try:
             xc = int(xc)
         except:
-            xc = 0 
+            xc = 0
         currentFile = getfile(self)
         if currentFile is not None:
             currentFile.update(label=lb, coords=[yc, xc])
             update_buttons(self)
             update_plots(self, updateAll=[True, False, False, False])
-    
+
     def save_notes(self):
         notes = self.ui.notes_edit.toPlainText()
         self.ffslib.notes = notes
-    
+
     def show_elements(self):
         file = getfile(self)
         update_timetrace(self, file)
-    
+
     def chunk_number_change(self):
         print('chunk_number_change')
         # current chunk number was changed -> update checkbox
@@ -1983,36 +2066,36 @@ class BrightEyesFFS(QMainWindow):
             pass
         else:
             update_plots(self, updateAll=[False, False, False, True], updatechunks=False)
-    
+
     def show_chunks_corr_change(self):
         update_plots(self, updateAll=[False, False, False, True])
-    
+
     def chunk_checkbox_change(self):
         # the "chunks-on" checkbox may change because the user clicked it
         # or because the user scrolled through the time trace
         # in the latter case, nothing needs to be done
         update_chunks_on(self)
-    
+
     def copy_chunks_off_clipboard(self):
         analysis = getanalysis(self)
         if analysis is None:
             return
         self.chunks_on = copy.deepcopy(list(analysis.settings.chunks_off))
         print(str(self.chunks_on) + " stored in clipboard")
-        
+
     def paste_chunks_off_clipboard(self):
         turn_off_chunks_from_clipboard(self)
-    
+
     def turn_on_all_chunks(self):
         turn_on_all_chunks_current_corr(self)
-    
+
     def show_fingerprint(self):
         file = getfile(self)
         update_fingerprint(self, file)
-        
+
     def show_x_print(self, xprint='N'):
         update_xprint(self, xprint=xprint)
-    
+
     def show_analysis(self):
         # Check if top level item is selected or child selected
         item = self.ui.correlations_treeWidget.currentItem()
@@ -2033,20 +2116,20 @@ class BrightEyesFFS(QMainWindow):
         else:
             file.update(active_analysis='None')
         update_buttons(self)
-    
+
     def calc_corr_active_file(self):
         self.calc_correlations(calc='current')
-    
+
     def add_corr_and_calc(self):
         addcorr_to_file(self)
         self.calc_corr_active_file()
-    
+
     def calc_corr_all_files(self):
         self.calc_correlations(calc='all')
-        
+
     def add_corr_to_joblist(self):
         addcorr_to_file(self)
-    
+
     def open_image_file(self):
         self.update_progress_bar(0, message='Loading image...')
         fname = open_image_dialog()
@@ -2067,7 +2150,7 @@ class BrightEyesFFS(QMainWindow):
                 plot_image(self)
                 update_buttons(self)
         self.update_progress_bar(100, "Done.")
-    
+
     def change_image_file(self):
         if self.ffslib.num_images > 0:
             imageNr = self.ffslib.active_image
@@ -2091,7 +2174,7 @@ class BrightEyesFFS(QMainWindow):
             self.update_progress_bar(100, "Done.")
         else:
             self.open_image_file()
-    
+
     def save_session(self, filepath=None):
         # use "filepath = ''" for saving to new file
         self.update_progress_bar(0)
@@ -2110,11 +2193,11 @@ class BrightEyesFFS(QMainWindow):
         self.progressMessage = ""
         self.update_progress_bar(100, "Done.")
         self.setWindowTitle("BrightEyes-FFS - " + str(self.filePath))
-    
+
     def save_session_as(self):
         print('save session as')
         self.save_session(filepath='')
-    
+
     def open_session(self):
         self.update_progress_bar(0)
         self.ui.progressBar_label.setText("")
@@ -2137,16 +2220,23 @@ class BrightEyesFFS(QMainWindow):
             #update_plots(self)
         self.progressMessage = ""
         self.update_progress_bar(100, "Done.")
-        
-    
+
+
     def new_session(self):
         renew = showdialog('Create new session', 'Are you sure you want to create a new session? Unsaved changes will get lost.', '')
         if renew:
             clean_session(self)
-    
+
     def export_session_xlsx(self):
         exportlib_xlsx(self)
-    
+
+    def export_corr_xlsx(self):
+        fname = save_ffs(window_title='Export fit results as', ftype='*.xlsx', directory='')
+        if fname is not None:
+            if not fname.endswith('.xlsx'):
+                fname = fname + '.xlsx'
+            corr2excel(self.current_corrs, fname)
+
     def calc_correlations(self, calc='all'):
         Nfiles = nrfiles(self)
         for i in range(Nfiles):
@@ -2196,7 +2286,7 @@ class BrightEyesFFS(QMainWindow):
                                 file.update(timetrace=self.data, airy=np.sum(self.data.astype(float), 0))
                 update_buttons(self)
             self.update_progress_bar(100, "Done.")
-    
+
     def on_legend_click(self, event):
         artist = event.artist
         # Check if the clicked item is part of a scatter or fit line
@@ -2205,40 +2295,31 @@ class BrightEyesFFS(QMainWindow):
             if artist == scatter_handle:
                 # Toggle visibility of both the scatter and the corresponding fit line
                 scatter_handle.set_visible(not scatter_handle.get_visible())
-                if i < len(self.fit_handles): 
+                if i < len(self.fit_handles):
                     fit_handle = self.fit_handles[i][0]
                     fit_handle.set_visible(False)
                 self.ui.correlations_widget.canvas.draw()
-    
+
     def use_current_fit_as_experimental_data(self):
         use_fit_as_data(self)
-    
+
     def copy_current_correlation(self):
         copy_correlation(self)
-        
+
     def plot_jupyter_notebook(self):
         fname = r'brighteyes_plot_saved_session_' + datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S")
         ffs_file = fname + '.ffs'
         self.save_session(filepath=ffs_file)
         notebook_file = fname + '.ipynb'
         plot_session_in_notebook(ffs_file, notebook_file)
-        try:
-            _ = subprocess.Popen(["jupyter", "notebook", notebook_file])
-        except:
-            showdialog('Error opening the notebook', 'The Jupyter Notebook has been created but could not be opened automatically. Please run Jupyter and open the notebook manually.', '')
-    
+        open_notebook_in_jupyterlab(notebook_file, parent=self)
+
     def create_jupyter_notebook(self):
         fname = r'brighteyes_saved_session_' + datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S")
         notebook_file = fname + '.ipynb'
         success = convert_session_to_notebook(self.ffslib, notebook_file)
-        if success == 'success':
-            try:
-                _ = subprocess.Popen(["jupyter", "notebook", notebook_file])
-            except:
-                showdialog('Error opening the notebook', 'The Jupyter Notebook has been created but could not be opened automatically. Please run Jupyter and open the notebook manually.', '')
-        else:
-            showdialog('Error creating notebook', 'A Jupyter Notebook could not be created due to the following error: ' + success, '')
-    
+        open_notebook_in_jupyterlab(notebook_file, parent=self)
+
     def filter_out_bad_chunks(self):
         update_chunks_on_filter(self)
     

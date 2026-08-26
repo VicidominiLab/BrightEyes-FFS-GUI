@@ -17,7 +17,7 @@ def get_params(det_type='Square 5x5'):
                    '10x12+15x17+14x16+20x22+19x21+18x20+24x26+23x25+28x30',
                    '18x10+19x11+23x15+20x12+24x16+28x20+25x17+29x21+30x22',
                    '22x12+21x11+26x16+20x10+25x15+30x20+24x14+29x19+28x18']
-    else:
+    elif det_type == 'Airyscan 32':
         # airyscan
         listOfG = ['crossAll']
         elements = ['Angle0', 'Angle60', 'Angle120', 'Angle180', 'Angle240', 'Angle300']
@@ -27,6 +27,14 @@ def get_params(det_type='Square 5x5'):
                    '0x12+6x3+18x0+17x4+5x13+16x14+7x2+1x11+8x10',
                    '0x10+5x2+16x0+6x9+17x1+18x8+15x3+4x11+14x12',
                    '0x8+4x1+14x0+3x9+13x2+12x10+5x7+15x6+16x18']
+    else:
+        # prism
+        elements = ['Right', 'Up', 'Left', 'Down']
+        listOfG = ['crossAll']
+        average = ['16x17+17x18+23x24+24x25+30x31+31x32',
+                   '23x16+24x17+25x18+30x23+31x24+32x25',
+                   '18x17+17x16+25x24+24x23+32x31+31x30',
+                   '16x23+23x30+17x24+24x31+18x25+25x32']
     
     return {
         "mode"       : 'Cross-correlation for flow analysis',

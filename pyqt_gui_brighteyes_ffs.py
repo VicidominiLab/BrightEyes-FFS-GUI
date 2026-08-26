@@ -2,11 +2,113 @@
 
 # Form implementation generated from reading ui file 'brighteyes_ffs_3.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.15.11
 #
-# WARNING! All changes made in this file will be lost!
+# Modernized compact presentation layer based on the generated UI file (v13).
+# Widget names, actions, and signal wiring are intentionally preserved.
+# Regenerating this file with pyuic5 will overwrite the custom theme below.
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+
+class _MenuPolisher(QtCore.QObject):
+    """Keep application and context menus visually consistent.
+
+    Some platform styles draw standard QAction icons on dark square tiles.
+    The menus remain fully functional; only those menu icons are removed.
+    """
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QtWidgets.QMenu) and event.type() == QtCore.QEvent.Show:
+            for action in obj.actions():
+                if not action.icon().isNull():
+                    action.setIcon(QtGui.QIcon())
+        return super().eventFilter(obj, event)
+
+
+class _CleanComboItemDelegate(QtWidgets.QStyledItemDelegate):
+    """Draw combo-box entries without native marker placeholders."""
+
+    def __init__(self, parent=None, minimum_height=21):
+        super().__init__(parent)
+        self.minimum_height = minimum_height
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        option.features &= ~QtWidgets.QStyleOptionViewItem.HasCheckIndicator
+        option.checkState = QtCore.Qt.Unchecked
+        option.icon = QtGui.QIcon()
+        option.decorationSize = QtCore.QSize(0, 0)
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        size.setHeight(max(self.minimum_height, option.fontMetrics.height() + 4))
+        return size
+
+
+class _FileTabButton(QtWidgets.QPushButton):
+    """File selector button with deterministic custom painting.
+
+    Drawing the background here prevents platform or application styles from
+    replacing the requested colors with the native grey button appearance.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCheckable(True)
+        self.setAutoExclusive(True)
+        self.setAttribute(QtCore.Qt.WA_Hover, True)
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+
+        rect = QtCore.QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        hovered = self.underMouse()
+        pressed = self.isDown()
+        active = self.isChecked()
+
+        if active:
+            background = '#4f46e5'
+            border = '#4f46e5'
+            foreground = '#ffffff'
+            if pressed:
+                background = border = '#3730a3'
+            elif hovered:
+                background = border = '#4338ca'
+        else:
+            background = '#eef2ff'
+            border = '#c7d2fe'
+            foreground = '#3730a3'
+            if pressed:
+                background = '#cfd7ff'
+                border = '#4f46e5'
+            elif hovered:
+                background = '#dfe5ff'
+                border = '#6366f1'
+                foreground = '#312e81'
+
+        # Keep disabled file slots visibly part of the same file-tab family
+        # instead of reverting to the platform's grey native-button color.
+        if not self.isEnabled() and not active:
+            background = '#f1f3ff'
+            border = '#d8dcf6'
+            foreground = '#858bb6'
+
+        painter.setPen(QtGui.QPen(QtGui.QColor(border), 1.0))
+        painter.setBrush(QtGui.QColor(background))
+        painter.drawRoundedRect(rect, 5.0, 5.0)
+
+        painter.setPen(QtGui.QColor(foreground))
+        painter.setFont(self.font())
+        text_rect = self.rect().adjusted(7, 0, -7, 0)
+        painter.drawText(
+            text_rect,
+            QtCore.Qt.AlignCenter | QtCore.Qt.TextSingleLine,
+            self.text(),
+        )
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -29,19 +131,19 @@ class Ui_MainWindow(object):
         self.prevFCSfile_button = QtWidgets.QPushButton(self.centralwidget)
         self.prevFCSfile_button.setObjectName("prevFCSfile_button")
         self.horizontalLayout_3.addWidget(self.prevFCSfile_button)
-        self.FCSfile0_button = QtWidgets.QPushButton(self.centralwidget)
+        self.FCSfile0_button = _FileTabButton(self.centralwidget)
         self.FCSfile0_button.setObjectName("FCSfile0_button")
         self.horizontalLayout_3.addWidget(self.FCSfile0_button)
-        self.FCSfile1_button = QtWidgets.QPushButton(self.centralwidget)
+        self.FCSfile1_button = _FileTabButton(self.centralwidget)
         self.FCSfile1_button.setObjectName("FCSfile1_button")
         self.horizontalLayout_3.addWidget(self.FCSfile1_button)
-        self.FCSfile2_button = QtWidgets.QPushButton(self.centralwidget)
+        self.FCSfile2_button = _FileTabButton(self.centralwidget)
         self.FCSfile2_button.setObjectName("FCSfile2_button")
         self.horizontalLayout_3.addWidget(self.FCSfile2_button)
-        self.FCSfile3_button = QtWidgets.QPushButton(self.centralwidget)
+        self.FCSfile3_button = _FileTabButton(self.centralwidget)
         self.FCSfile3_button.setObjectName("FCSfile3_button")
         self.horizontalLayout_3.addWidget(self.FCSfile3_button)
-        self.FCSfile4_button = QtWidgets.QPushButton(self.centralwidget)
+        self.FCSfile4_button = _FileTabButton(self.centralwidget)
         self.FCSfile4_button.setObjectName("FCSfile4_button")
         self.horizontalLayout_3.addWidget(self.FCSfile4_button)
         self.nextFCSfile_button = QtWidgets.QPushButton(self.centralwidget)
@@ -93,7 +195,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_4.setStretch(3, 1)
         self.horizontalLayout_4.setStretch(4, 1)
         self.central_window.addLayout(self.horizontalLayout_4)
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(40, 8, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.central_window.addItem(spacerItem)
         self.verticalLayout_5 = QtWidgets.QVBoxLayout()
         self.verticalLayout_5.setObjectName("verticalLayout_5")
@@ -160,10 +262,10 @@ class Ui_MainWindow(object):
         self.horizontalLayout_6.addWidget(self.chunkOn_checkBox)
         self.verticalLayout_2.addLayout(self.horizontalLayout_6)
         self.verticalLayout_2.setStretch(0, 10)
-        self.verticalLayout_2.setStretch(1, 3)
+        self.verticalLayout_2.setStretch(1, 2)
         self.gridLayout_6.addLayout(self.verticalLayout_2, 0, 1, 1, 1)
         self.gridLayout_6.setColumnStretch(0, 7)
-        self.gridLayout_6.setColumnStretch(1, 3)
+        self.gridLayout_6.setColumnStretch(1, 4)
         self.central_window.addLayout(self.gridLayout_6)
         self.horizontalLayout_7 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_7.setObjectName("horizontalLayout_7")
@@ -195,7 +297,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_3.addLayout(self.horizontalLayout_8)
         self.horizontalLayout_7.addLayout(self.verticalLayout_3)
         self.verticalLayout = QtWidgets.QVBoxLayout()
-        self.verticalLayout.setContentsMargins(10, -1, 15, -1)
+        self.verticalLayout.setContentsMargins(4, -1, 6, -1)
         self.verticalLayout.setObjectName("verticalLayout")
         self.difflaw_dropdown = QtWidgets.QComboBox(self.centralwidget)
         self.difflaw_dropdown.setEnabled(True)
@@ -409,10 +511,10 @@ class Ui_MainWindow(object):
         self.gridLayout_7.setObjectName("gridLayout_7")
         self.calcCorrCurrentFile_button = QtWidgets.QPushButton(self.verticalLayoutWidget_2)
         self.calcCorrCurrentFile_button.setObjectName("calcCorrCurrentFile_button")
-        self.gridLayout_7.addWidget(self.calcCorrCurrentFile_button, 4, 0, 1, 1)
+        self.gridLayout_7.addWidget(self.calcCorrCurrentFile_button, 4, 1, 1, 1)
         self.addToJoblist_button = QtWidgets.QPushButton(self.verticalLayoutWidget_2)
         self.addToJoblist_button.setObjectName("addToJoblist_button")
-        self.gridLayout_7.addWidget(self.addToJoblist_button, 4, 1, 1, 1)
+        self.gridLayout_7.addWidget(self.addToJoblist_button, 4, 0, 1, 1)
         self.precision_label = QtWidgets.QLabel(self.verticalLayoutWidget_2)
         self.precision_label.setObjectName("precision_label")
         self.gridLayout_7.addWidget(self.precision_label, 0, 0, 1, 1)
@@ -450,6 +552,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.addWidget(self.label, 3, 0, 1, 1)
         self.detector_dropdown = QtWidgets.QComboBox(self.verticalLayoutWidget_2)
         self.detector_dropdown.setObjectName("detector_dropdown")
+        self.detector_dropdown.addItem("")
         self.detector_dropdown.addItem("")
         self.detector_dropdown.addItem("")
         self.detector_dropdown.addItem("")
@@ -491,6 +594,7 @@ class Ui_MainWindow(object):
         self.fitModel_dropdown.addItem("")
         self.fitModel_dropdown.addItem("")
         self.verticalLayout_8.addWidget(self.fitModel_dropdown)
+        self.verticalLayout_8.addSpacing(6)
         self.gridLayout_9 = QtWidgets.QGridLayout()
         self.gridLayout_9.setVerticalSpacing(6)
         self.gridLayout_9.setObjectName("gridLayout_9")
@@ -782,6 +886,8 @@ class Ui_MainWindow(object):
         self.actionPlot_in_Jupyter_Notebook.setObjectName("actionPlot_in_Jupyter_Notebook")
         self.actionExport_results_to_Excel = QtWidgets.QAction(MainWindow)
         self.actionExport_results_to_Excel.setObjectName("actionExport_results_to_Excel")
+        self.actionExport_current_correlation_to_Excel = QtWidgets.QAction(MainWindow)
+        self.actionExport_current_correlation_to_Excel.setObjectName("actionExport_current_correlation_to_Excel")
         self.menuFile.addAction(self.actionOpen_image)
         self.menuFile.addAction(self.actionChange_image)
         self.menuFile.addSeparator()
@@ -791,6 +897,7 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.actionNew_session)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExport_results_to_Excel)
+        self.menuFile.addAction(self.actionExport_current_correlation_to_Excel)
         self.menuCalculate.addAction(self.actionCorrelation)
         self.menuCalculate.addAction(self.actionAllCorrelationsCurrentFile)
         self.menuRemove.addAction(self.actionCurrent_fit)
@@ -811,18 +918,825 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
         self.showElements_widget.setCurrentRow(2)
+        self.apply_professional_style(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def apply_professional_style(self, MainWindow):
+        """Apply a modern visual theme without changing widget behavior."""
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            app.setStyle("Fusion")
+            self._menu_polisher = _MenuPolisher(MainWindow)
+            app.installEventFilter(self._menu_polisher)
+
+        MainWindow.setMinimumSize(QtCore.QSize(1050, 720))
+        MainWindow.setDockOptions(
+            QtWidgets.QMainWindow.AnimatedDocks
+            | QtWidgets.QMainWindow.AllowNestedDocks
+            | QtWidgets.QMainWindow.AllowTabbedDocks
+        )
+
+        base_font = QtGui.QFont("Segoe UI", 9)
+        base_font.setStyleHint(QtGui.QFont.SansSerif)
+        MainWindow.setFont(base_font)
+
+        # Improve spacing in the main workspace.
+        self.gridLayout_8.setContentsMargins(9, 9, 9, 9)
+        self.gridLayout_8.setHorizontalSpacing(6)
+        self.gridLayout_8.setVerticalSpacing(6)
+        self.central_window.setSpacing(6)
+        self.horizontalLayout_3.setSpacing(6)
+        self.horizontalLayout_4.setSpacing(6)
+        self.horizontalLayout_5.setSpacing(6)
+        self.gridLayout_6.setHorizontalSpacing(6)
+        self.horizontalLayout_7.setSpacing(6)
+
+        # Make dock contents responsive instead of relying on fixed geometry.
+        responsive_docks = (
+            (self.dockWidgetContents_6, self.notes_edit),
+            (self.dockWidgetContents_3, self.verticalLayoutWidget_2),
+            (self.dockWidgetContents_4, self.verticalLayoutWidget_4),
+            (self.dockWidgetContents_5, self.gridLayoutWidget),
+        )
+        for container, child in responsive_docks:
+            if container.layout() is None:
+                layout = QtWidgets.QVBoxLayout(container)
+                layout.setContentsMargins(6, 6, 6, 6)
+                layout.setSpacing(4)
+                layout.addWidget(child)
+
+        # Keep the correlation-calculation controls grouped at the top when
+        # the dock is stretched vertically. The stretch absorbs extra space
+        # below the form instead of between the selector and the fields.
+        self.verticalLayout_4.setSpacing(4)
+        self.verticalLayout_4.setAlignment(QtCore.Qt.AlignTop)
+        self.gridLayout_7.setVerticalSpacing(4)
+        self.gridLayout_7.setAlignment(QtCore.Qt.AlignTop)
+        self.verticalLayout_4.addStretch(1)
+        self.verticalLayoutWidget_2.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding,
+        )
+
+        # Keep the Fit analysis controls grouped at the top when its dock is
+        # stretched. Extra height is absorbed below the complete form.
+        self.verticalLayout_8.setSpacing(4)
+        self.verticalLayout_8.setAlignment(QtCore.Qt.AlignTop)
+        self.gridLayout_9.setAlignment(QtCore.Qt.AlignTop)
+        self.verticalLayout_8.addStretch(1)
+        self.verticalLayoutWidget_4.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding,
+        )
+
+        # Do the same for Diffusion analysis. This panel uses a grid directly,
+        # so an expanding spacer row keeps all controls together at the top.
+        self.gridLayout_10.setVerticalSpacing(4)
+        self.gridLayout_10.setAlignment(QtCore.Qt.AlignTop)
+        self._diffusion_bottom_spacer = QtWidgets.QSpacerItem(
+            0, 0,
+            QtWidgets.QSizePolicy.Minimum,
+            QtWidgets.QSizePolicy.Expanding,
+        )
+        self.gridLayout_10.addItem(self._diffusion_bottom_spacer, 8, 0, 1, 2)
+        self.gridLayout_10.setRowStretch(8, 1)
+        self.gridLayoutWidget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding,
+        )
+
+        # Visual roles used by the stylesheet.
+        primary_buttons = (
+            self.saveLabel_button,
+            self.calcCorrCurrentFile_button,
+            self.newFit_button,
+            self.updateDiffLaw_button,
+            self.updateDiffLawDiameter_button,
+        )
+        for button in primary_buttons:
+            button.setProperty("role", "primary")
+
+        secondary_buttons = (
+            self.addToJoblist_button,
+            self.overwriteFit_button,
+            self.imageName_button,
+        )
+        for button in secondary_buttons:
+            button.setProperty("role", "secondary")
+
+        navigation_buttons = (
+            self.prevFCSfile_button,
+            self.nextFCSfile_button,
+            self.prevImage_button,
+            self.nextImage_button,
+        )
+        for button in navigation_buttons:
+            button.setProperty("role", "navigation")
+            button.setMinimumWidth(34)
+            button.setMaximumWidth(42)
+
+        file_buttons = (
+            self.FCSfile0_button,
+            self.FCSfile1_button,
+            self.FCSfile2_button,
+            self.FCSfile3_button,
+            self.FCSfile4_button,
+        )
+        for button in file_buttons:
+            button.setProperty("role", "fileTab")
+            # Keep one file tab visibly active without changing its click signal.
+            button.setCheckable(True)
+            button.setAutoExclusive(True)
+
+        # File-tab colors are painted by _FileTabButton, which avoids native
+        # platform styles replacing the backgrounds with grey.
+
+        # The first slot is the active file when the interface is created.
+        self.FCSfile0_button.setChecked(True)
+
+        plot_widgets = (
+            self.image_widget,
+            self.fingerprint_widget,
+            self.timetrace_widget,
+            self.correlations_widget,
+            self.difflaw_widget,
+        )
+        for widget in plot_widgets:
+            widget.setProperty("panel", "plot")
+
+        self.FCSFileName_label.setProperty("role", "title")
+        self.FCSFolderName_label.setProperty("role", "subtitle")
+        self.imageInfo_label.setWordWrap(True)
+        self.progressBar.setTextVisible(True)
+        self.notes_edit.setPlaceholderText("Add notes about the current measurement...")
+
+        # Small usability improvements that do not alter signals or data flow.
+        for button in MainWindow.findChildren(QtWidgets.QPushButton):
+            button.setCursor(QtGui.QCursor(QtCore.Qt.ArrowCursor))
+            button.setMinimumHeight(23)
+            button_font = button.font()
+            button_font.setBold(False)
+            button_font.setWeight(QtGui.QFont.Normal)
+            button.setFont(button_font)
+
+        for combo in MainWindow.findChildren(QtWidgets.QComboBox):
+            combo.setMinimumHeight(23)
+            if combo.maximumHeight() < 23:
+                combo.setMaximumHeight(23)
+            combo.setMaxVisibleItems(14)
+            combo.view().setTextElideMode(QtCore.Qt.ElideRight)
+            combo.view().setIconSize(QtCore.QSize(0, 0))
+            combo.view().setItemDelegate(_CleanComboItemDelegate(combo.view()))
+            if hasattr(combo.view(), "setIndentation"):
+                combo.view().setIndentation(0)
+            combo.view().setStyleSheet(
+                "QAbstractItemView {"
+                "  background: #ffffff;"
+                "  border: 1px solid #cfd8e6;"
+                "  border-radius: 3px;"
+                "  padding: 2px;"
+                "  outline: none;"
+                "}"
+                "QAbstractItemView::item {"
+                "  min-height: 20px;"
+                "  padding: 1px 7px;"
+                "  border: none;"
+                "  border-radius: 3px;"
+                "}"
+                "QAbstractItemView::item:hover {"
+                "  background: #f1f5f9;"
+                "  color: #172033;"
+                "  border: none;"
+                "}"
+                "QAbstractItemView::item:selected {"
+                "  background: #e8f5ee;"
+                "  color: #166534;"
+                "  border: none;"
+                "}"
+                "QAbstractItemView::indicator {"
+                "  width: 0px;"
+                "  height: 0px;"
+                "  image: none;"
+                "}"
+            )
+
+        # The two central analysis selectors contain longer descriptions.
+        # Set the popup row geometry explicitly; stylesheet min-height alone
+        # only enlarges the painted selection rectangle on some Qt styles.
+        self._central_combo_delegates = []
+        for combo in (self.showchunkscorr_dropdown, self.difflaw_dropdown):
+            view = combo.view()
+            delegate = _CleanComboItemDelegate(view, minimum_height=28)
+            view.setItemDelegate(delegate)
+            self._central_combo_delegates.append(delegate)
+
+            view.setUniformItemSizes(False)
+            if hasattr(view, "setSpacing"):
+                view.setSpacing(1)
+
+            # SizeHintRole forces the actual popup rows to become taller.
+            # It does not change the height of the closed combo box itself.
+            font_metrics = combo.fontMetrics()
+            for row in range(combo.count()):
+                text_width = font_metrics.horizontalAdvance(combo.itemText(row)) + 30
+                row_width = max(combo.sizeHint().width(), text_width)
+                combo.setItemData(
+                    row,
+                    QtCore.QSize(row_width, 28),
+                    QtCore.Qt.SizeHintRole,
+                )
+
+            view.setStyleSheet(
+                "QAbstractItemView {"
+                "  background: #ffffff;"
+                "  border: 1px solid #cfd8e6;"
+                "  border-radius: 3px;"
+                "  padding: 3px;"
+                "  outline: none;"
+                "}"
+                "QAbstractItemView::item {"
+                "  padding: 2px 7px;"
+                "  border: none;"
+                "  border-radius: 3px;"
+                "}"
+                "QAbstractItemView::item:hover {"
+                "  background: #f1f5f9;"
+                "  color: #172033;"
+                "}"
+                "QAbstractItemView::item:selected {"
+                "  background: #e8f5ee;"
+                "  color: #166534;"
+                "}"
+                "QAbstractItemView::indicator {"
+                "  width: 0px;"
+                "  height: 0px;"
+                "  image: none;"
+                "}"
+            )
+
+        for edit in MainWindow.findChildren(QtWidgets.QLineEdit):
+            edit.setMinimumHeight(23)
+
+        # Allow the image placeholder text to fit comfortably on two lines.
+        self.imageName_button.setMinimumHeight(36)
+
+        # Align the fit-range labels with the neighboring spin boxes.
+        for label in (self.fitstart_label, self.fitstop_label):
+            label.setMinimumHeight(23)
+            label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            label.setTextFormat(QtCore.Qt.PlainText)
+
+        for spinbox in (self.fitstart_spinBox, self.fitstop_spinBox, self.chunk_spinBox):
+            spinbox.setMinimumHeight(23)
+            spinbox.lineEdit().setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        self.xcoord_edit.setMaximumWidth(80)
+        self.ycoord_edit.setMaximumWidth(80)
+        self.saveLabel_button.setMaximumWidth(70)
+        self.showElements_widget.setMinimumSize(QtCore.QSize(120, 58))
+        self.showElements_widget.setMaximumSize(QtCore.QSize(120, 58))
+
+        self.correlations_treeWidget.setAlternatingRowColors(True)
+        self.correlations_treeWidget.setAnimated(False)
+        self.correlations_treeWidget.setUniformRowHeights(True)
+        self.correlations_treeWidget.header().setStretchLastSection(True)
+        self.correlations_treeWidget.header().setStyleSheet(
+            "QHeaderView::section { font-weight: 400; }"
+        )
+
+        # Standard Qt icons avoid external asset dependencies.
+        style = MainWindow.style()
+        self.prevFCSfile_button.setIcon(style.standardIcon(QtWidgets.QStyle.SP_ArrowBack))
+        self.nextFCSfile_button.setIcon(style.standardIcon(QtWidgets.QStyle.SP_ArrowForward))
+        self.prevImage_button.setIcon(style.standardIcon(QtWidgets.QStyle.SP_ArrowBack))
+        self.nextImage_button.setIcon(style.standardIcon(QtWidgets.QStyle.SP_ArrowForward))
+        # Keep the compact OK button text-only; no redundant check icon.
+        self.saveLabel_button.setIcon(QtGui.QIcon())
+        self.actionOpen_image.setIcon(style.standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
+        self.actionOpen_session.setIcon(style.standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
+        self.actionSave_session.setIcon(style.standardIcon(QtWidgets.QStyle.SP_DialogSaveButton))
+        self.actionSave_session_as.setIcon(style.standardIcon(QtWidgets.QStyle.SP_DialogSaveButton))
+        self.actionNew_session.setIcon(style.standardIcon(QtWidgets.QStyle.SP_FileIcon))
+        self.actionCurrent_fit.setIcon(style.standardIcon(QtWidgets.QStyle.SP_TrashIcon))
+        self.actionCurrent_correlation.setIcon(style.standardIcon(QtWidgets.QStyle.SP_TrashIcon))
+        self.actionCurrent_FFS_file.setIcon(style.standardIcon(QtWidgets.QStyle.SP_TrashIcon))
+        self.actionCurrent_Image.setIcon(style.standardIcon(QtWidgets.QStyle.SP_TrashIcon))
+
+        MainWindow.setStyleSheet(
+            """
+            QMainWindow {
+                background: #f0f0f0;
+                color: #172033;
+            }
+
+            QWidget#centralwidget {
+                background: #fafafa;
+            }
+
+            QWidget {
+                color: #172033;
+                font-family: "Segoe UI", "Inter", sans-serif;
+                font-size: 9pt;
+            }
+
+            QLabel[role="title"] {
+                color: #111827;
+                font-size: 11pt;
+                font-weight: 400;
+            }
+
+            QLabel[role="subtitle"] {
+                color: #6b7280;
+                font-size: 8.5pt;
+            }
+
+            QMenuBar {
+                background: #fafafa;
+                color: #263244;
+                border: none;
+                border-bottom: 1px solid #e2e7ef;
+                padding: 2px 5px;
+                spacing: 1px;
+            }
+
+            QMenuBar::item {
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 4px;
+                padding: 3px 8px;
+                margin: 0px;
+            }
+
+            QMenuBar::item:selected {
+                background: #f0f3f9;
+                border-color: #dce3ee;
+                color: #25324a;
+            }
+
+            QMenuBar::item:pressed {
+                background: #e8edf6;
+                border-color: #cfd8e6;
+                color: #1f2a44;
+            }
+
+            QMenu {
+                background: #ffffff;
+                color: #263244;
+                border: 1px solid #d7deea;
+                border-radius: 6px;
+                padding: 3px;
+            }
+
+            QMenu::item {
+                background: transparent;
+                border: none;
+                border-radius: 4px;
+                padding: 4px 20px 4px 9px;
+                margin: 0px;
+            }
+
+            QMenu::item:selected {
+                background: #eef2ff;
+                color: #3730a3;
+            }
+
+            QMenu::item:disabled {
+                color: #a0a8b5;
+                background: transparent;
+            }
+
+            QMenu::separator {
+                height: 1px;
+                background: #e7ebf1;
+                margin: 3px 6px;
+            }
+
+            QMenu::icon {
+                width: 0px;
+                height: 0px;
+            }
+
+            QMenu::indicator {
+                width: 0px;
+                height: 0px;
+            }
+
+            QPushButton {
+                background: #ffffff;
+                border: 1px solid #cfd8e6;
+                border-radius: 5px;
+                padding: 3px 8px;
+                font-weight: 400;
+            }
+
+            QPushButton:hover {
+                background: #f0f3ff;
+                border-color: #818cf8;
+                color: #3730a3;
+            }
+
+            QPushButton:pressed {
+                background: #e0e7ff;
+                border-color: #6366f1;
+            }
+
+            QPushButton:disabled {
+                background: #eef1f5;
+                color: #9aa4b2;
+                border-color: #dce2ea;
+            }
+
+            QPushButton[role="primary"] {
+                background: #4f46e5;
+                color: #ffffff;
+                border: 1px solid #4f46e5;
+                font-weight: 400;
+            }
+
+            QPushButton[role="primary"]:hover {
+                background: #4338ca;
+                border-color: #4338ca;
+                color: #ffffff;
+            }
+
+            QPushButton[role="primary"]:pressed {
+                background: #3730a3;
+                border-color: #3730a3;
+            }
+
+            QPushButton[role="secondary"] {
+                background: #eef2ff;
+                color: #3730a3;
+                border-color: #c7d2fe;
+                font-weight: 400;
+            }
+
+            QPushButton[role="secondary"]:hover {
+                background: #dfe5ff;
+                color: #312e81;
+                border-color: #6366f1;
+            }
+
+            QPushButton[role="secondary"]:pressed {
+                background: #cfd7ff;
+                color: #312e81;
+                border-color: #4f46e5;
+            }
+
+            QPushButton[role="navigation"] {
+                background: #e9edf5;
+                border-color: #d5dce8;
+                border-radius: 6px;
+                padding: 2px;
+                font-weight: 400;
+            }
+
+            QPushButton[role="navigation"]:hover {
+                background: #dfe5ff;
+                border-color: #6366f1;
+            }
+
+            QPushButton[role="navigation"]:pressed {
+                background: #cfd7ff;
+                border-color: #4f46e5;
+            }
+
+            QPushButton[role="fileTab"] {
+                background: #eef2ff;
+                color: #3730a3;
+                border: 1px solid #c7d2fe;
+                padding-left: 9px;
+                padding-right: 9px;
+                font-weight: 400;
+            }
+
+            QPushButton[role="fileTab"]:hover {
+                background: #dfe5ff;
+                color: #312e81;
+                border-color: #6366f1;
+            }
+
+            QPushButton[role="fileTab"]:pressed {
+                background: #cfd7ff;
+                color: #312e81;
+                border-color: #4f46e5;
+            }
+
+            QPushButton[role="fileTab"]:checked {
+                background: #4f46e5;
+                color: #ffffff;
+                border: 1px solid #4f46e5;
+            }
+
+            QPushButton[role="fileTab"]:checked:hover {
+                background: #4338ca;
+                color: #ffffff;
+                border-color: #4338ca;
+            }
+
+            QPushButton[role="fileTab"]:checked:pressed {
+                background: #3730a3;
+                color: #ffffff;
+                border-color: #3730a3;
+            }
+
+            QPushButton[role="fileTab"]:focus {
+                outline: none;
+            }
+
+            QLineEdit, QComboBox, QSpinBox, QPlainTextEdit {
+                background: #ffffff;
+                border: 1px solid #cfd8e6;
+                border-radius: 5px;
+                padding: 2px 6px;
+                selection-background-color: #6366f1;
+                selection-color: #ffffff;
+            }
+
+            QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QPlainTextEdit:hover {
+                border-color: #a5b4fc;
+            }
+
+            QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QPlainTextEdit:focus {
+                border: 1px solid #6366f1;
+                padding: 2px 6px;
+            }
+
+            /* Match unavailable fit values with their greyed-out "None"
+               labels without disabling the line edits or changing behavior. */
+            QLineEdit[fitUnavailable="true"] {
+                color: #9ca3af;
+                background: #f8fafc;
+                border-color: #d9dee7;
+            }
+
+            QLineEdit[fitUnavailable="true"]:hover,
+            QLineEdit[fitUnavailable="true"]:focus {
+                color: #9ca3af;
+                background: #f8fafc;
+                border-color: #cbd5e1;
+            }
+
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+
+            QComboBox QAbstractItemView {
+                background: #ffffff;
+                border: 1px solid #cfd8e6;
+                border-radius: 5px;
+                padding: 2px;
+                selection-background-color: #e8f5ee;
+                selection-color: #166534;
+                outline: none;
+            }
+
+            QComboBox QAbstractItemView::item {
+                border: none;
+                border-radius: 3px;
+                padding-left: 7px;
+            }
+
+            QComboBox QAbstractItemView::indicator {
+                width: 0px;
+                height: 0px;
+                image: none;
+                border: none;
+            }
+
+            QSpinBox#fitstart_spinBox,
+            QSpinBox#fitstop_spinBox,
+            QSpinBox#chunk_spinBox {
+                padding: 0px 6px 3px 6px;
+            }
+
+            QSpinBox#fitstart_spinBox:focus,
+            QSpinBox#fitstop_spinBox:focus,
+            QSpinBox#chunk_spinBox:focus {
+                padding: 0px 6px 3px 6px;
+            }
+
+            QCheckBox {
+                spacing: 4px;
+                padding: 0px;
+            }
+
+            /* Fit parameters that are unavailable are disabled by the
+               application. Restore a clear muted appearance for labels such
+               as "None", which the global QWidget color would otherwise
+               override. */
+            QCheckBox:disabled {
+                color: #9ca3af;
+            }
+
+            QCheckBox::indicator {
+                width: 13px;
+                height: 13px;
+            }
+
+            QCheckBox::indicator:disabled {
+                border-color: #cbd5e1;
+                background: #f1f5f9;
+            }
+
+            QTreeWidget, QListWidget {
+                background: #ffffff;
+                alternate-background-color: #f7f9fc;
+                border: 1px solid #d7deea;
+                border-radius: 6px;
+                outline: none;
+                padding: 1px;
+            }
+
+            QTreeWidget::item, QListWidget::item {
+                border-radius: 3px;
+                padding: 1px 3px;
+            }
+
+            QTreeWidget::item:selected, QListWidget::item:selected {
+                background: #e0e7ff;
+                color: #312e81;
+            }
+
+            QHeaderView::section {
+                background: #eef2f7;
+                color: #374151;
+                border: none;
+                border-bottom: 1px solid #d7deea;
+                padding: 4px;
+                font-weight: 700;
+            }
+
+            QWidget[panel="plot"] {
+                background: #fafafa;
+                border: none;
+                border-radius: 0px;
+            }
+
+            QDockWidget {
+                color: #1f2937;
+                font-weight: 400;
+            }
+
+            QDockWidget::title {
+                background: #e9eef7;
+                font-weight: 400;
+                border: 1px solid #d7deea;
+                border-bottom: none;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                padding: 5px 8px;
+                text-align: left;
+            }
+
+            QDockWidget > QWidget {
+                background: #f8fafc;
+                border: 1px solid #d7deea;
+                border-top: none;
+            }
+
+            QProgressBar {
+                background: #e8edf5;
+                border: none;
+                border-radius: 5px;
+                min-height: 12px;
+                text-align: center;
+                color: #111827;
+                font-weight: 400;
+            }
+
+            QProgressBar[lightText="true"] {
+                color: #ffffff;
+            }
+
+            QProgressBar[lightText="false"] {
+                color: #111827;
+            }
+
+            QProgressBar::chunk {
+                background: #4f46e5;
+                border-radius: 5px;
+            }
+
+            QStatusBar {
+                background: #ffffff;
+                border-top: 1px solid #dfe5ef;
+                color: #667085;
+            }
+
+            QScrollBar:vertical {
+                background: transparent;
+                width: 9px;
+                margin: 1px;
+            }
+
+            QScrollBar::handle:vertical {
+                background: #c7cfdb;
+                border-radius: 4px;
+                min-height: 20px;
+            }
+
+            QScrollBar::handle:vertical:hover {
+                background: #9faabd;
+            }
+
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+                border: none;
+                height: 0px;
+            }
+
+            QToolTip {
+                background: #111827;
+                color: #ffffff;
+                border: 1px solid #374151;
+                border-radius: 4px;
+                padding: 3px;
+            }
+            """
+        )
+
+        # Keep unavailable fit values visually synchronized with labels such
+        # as "None". The controller may update these fields after changing
+        # the fit model, so refresh once the signal handlers have completed.
+        for index in range(11):
+            edit = getattr(self, f"fit{index}_edit", None)
+            if edit is not None:
+                edit.textChanged.connect(self._update_fit_unavailable_fields)
+
+        self.fitModel_dropdown.currentIndexChanged.connect(
+            lambda _index: QtCore.QTimer.singleShot(
+                0, self._update_fit_unavailable_fields
+            )
+        )
+        self._update_fit_unavailable_fields()
+
+        # Keep progress text readable against the filled portion. Values above
+        # 50% use white text; values at or below 50% use dark text.
+        self.progressBar.valueChanged.connect(self._update_progress_text_color)
+        self._update_progress_text_color(self.progressBar.value())
+
+        # Ensure all dock-panel titles use normal-weight text, including on
+        # platform styles that do not fully honor the QDockWidget rule above.
+        for dock in MainWindow.findChildren(QtWidgets.QDockWidget):
+            dock_font = dock.font()
+            dock_font.setBold(False)
+            dock_font.setWeight(QtGui.QFont.Normal)
+            dock.setFont(dock_font)
+
+        # Re-polish widgets so dynamic properties are reflected immediately.
+        for widget in MainWindow.findChildren(QtWidgets.QWidget):
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+
+    def _update_progress_text_color(self, value):
+        """Switch progress text color according to the normalized percentage."""
+        minimum = self.progressBar.minimum()
+        maximum = self.progressBar.maximum()
+
+        if maximum > minimum:
+            percentage = 100.0 * (value - minimum) / (maximum - minimum)
+        else:
+            percentage = 0.0
+
+        use_light_text = percentage > 50.0
+        if bool(self.progressBar.property("lightText")) != use_light_text:
+            self.progressBar.setProperty("lightText", use_light_text)
+            self.progressBar.style().unpolish(self.progressBar)
+            self.progressBar.style().polish(self.progressBar)
+            self.progressBar.update()
+
+    def _update_fit_unavailable_fields(self, *_args):
+        """Grey NaN values whose matching fit parameter is unavailable."""
+        for index in range(11):
+            checkbox = getattr(self, f"fit{index}_checkBox", None)
+            edit = getattr(self, f"fit{index}_edit", None)
+            if checkbox is None or edit is None:
+                continue
+
+            unavailable = (
+                checkbox.text().strip().casefold() == "none"
+                and edit.text().strip().casefold() == "nan"
+            )
+
+            if bool(edit.property("fitUnavailable")) != unavailable:
+                edit.setProperty("fitUnavailable", unavailable)
+                edit.style().unpolish(edit)
+                edit.style().polish(edit)
+                edit.update()
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.prevFCSfile_button.setText(_translate("MainWindow", "<"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "BrightEyes FFS Analysis"))
+        self.prevFCSfile_button.setText("")
         self.FCSfile0_button.setText(_translate("MainWindow", "New file"))
         self.FCSfile1_button.setText(_translate("MainWindow", "File 2"))
         self.FCSfile2_button.setText(_translate("MainWindow", "File 3"))
         self.FCSfile3_button.setText(_translate("MainWindow", "File 4"))
         self.FCSfile4_button.setText(_translate("MainWindow", "File 5"))
-        self.nextFCSfile_button.setText(_translate("MainWindow", ">"))
+        self.nextFCSfile_button.setText("")
         self.FCSFileName_label.setText(_translate("MainWindow", "My FCS File"))
         self.FCSFolderName_label.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" color:#b1b1b1;\">C:\\Users\\Me\\My FCS Folder</span></p></body></html>"))
         self.label_edit.setText(_translate("MainWindow", "Label"))
@@ -850,9 +1764,9 @@ class Ui_MainWindow(object):
         self.menuRemove.setTitle(_translate("MainWindow", "Remove"))
         self.menuTools.setTitle(_translate("MainWindow", "Tools"))
         self.dockWidget.setWindowTitle(_translate("MainWindow", "Image"))
-        self.prevImage_button.setText(_translate("MainWindow", "<"))
+        self.prevImage_button.setText("")
         self.imageName_button.setText(_translate("MainWindow", "PushButton"))
-        self.nextImage_button.setText(_translate("MainWindow", ">"))
+        self.nextImage_button.setText("")
         self.imageInfo_label.setText(_translate("MainWindow", "Image info"))
         self.dockWidget_6.setWindowTitle(_translate("MainWindow", "Notes"))
         self.dockWidget_2.setWindowTitle(_translate("MainWindow", "Status"))
@@ -878,6 +1792,7 @@ class Ui_MainWindow(object):
         self.detector_dropdown.setItemText(0, _translate("MainWindow", "Square 5x5"))
         self.detector_dropdown.setItemText(1, _translate("MainWindow", "PDA-23"))
         self.detector_dropdown.setItemText(2, _translate("MainWindow", "Airyscan 32"))
+        self.detector_dropdown.setItemText(3, _translate("MainWindow", "PRISM 7x7"))
         self.dockWidget_4.setWindowTitle(_translate("MainWindow", "Fit analysis"))
         self.fitModel_dropdown.setItemText(0, _translate("MainWindow", "Free diffusion 1 component"))
         self.fitModel_dropdown.setItemText(1, _translate("MainWindow", "Anomalous diffusion 1 component"))
@@ -886,8 +1801,8 @@ class Ui_MainWindow(object):
         self.fitModel_dropdown.setItemText(4, _translate("MainWindow", "2 components with afterpulsing"))
         self.fit2_edit.setText(_translate("MainWindow", "3,3,3"))
         self.fit8_edit.setText(_translate("MainWindow", "NaN"))
-        self.fitstop_label.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:8pt;\">Stop</span></p></body></html>"))
-        self.fitstart_label.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:8pt;\">Start</span></p></body></html>"))
+        self.fitstop_label.setText(_translate("MainWindow", "Stop"))
+        self.fitstart_label.setText(_translate("MainWindow", "Start"))
         self.fit5_checkBox.setText(_translate("MainWindow", "None"))
         self.fit0_edit.setText(_translate("MainWindow", "1,1,1"))
         self.fit7_edit.setText(_translate("MainWindow", "NaN"))
@@ -959,7 +1874,7 @@ class Ui_MainWindow(object):
         self.actionCurrent_Image.setText(_translate("MainWindow", "Current Image"))
         self.actionPlot_in_Jupyter_Notebook.setText(_translate("MainWindow", "Plot in Jupyter Notebook"))
         self.actionExport_results_to_Excel.setText(_translate("MainWindow", "Export results to Excel"))
-
+        self.actionExport_current_correlation_to_Excel.setText(_translate("MainWindow", "Export correlation to Excel"))
 from mplwidget import MplWidget
 from mplwidgetcorrplot import MplWidgetCorrPlot
 from mplwidgetdifflawplot import MplWidgetDiffLawPlot
