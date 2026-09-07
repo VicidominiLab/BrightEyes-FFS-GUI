@@ -4,12 +4,99 @@
 #
 # Created by: PyQt5 UI code generator 5.15.11
 #
-# Modernized compact presentation layer based on the generated UI file (v13).
+# Modernized DPI-aware presentation layer based on the generated UI file (v14).
 # Widget names, actions, and signal wiring are intentionally preserved.
 # Regenerating this file with pyuic5 will overwrite the custom theme below.
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+# Make Qt use the same logical-size model when a laptop is connected
+# to an external monitor. These attributes only take effect if this
+# module is imported before QApplication is created; otherwise they are
+# harmless.
+try:
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
+    if hasattr(QtCore.Qt, "HighDpiScaleFactorRoundingPolicy"):
+        QtCore.QCoreApplication.setHighDpiScaleFactorRoundingPolicy(
+            QtCore.Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+        )
+except Exception:
+    pass
+
+
+try:
+    import matplotlib as _mpl
+except Exception:
+    _mpl = None
+
+
+def _clamp(value, low, high):
+    return max(low, min(high, value))
+
+
+def _screen_ui_scale(widget=None):
+    """Return a conservative UI scale for high-DPI/small laptop screens.
+
+    The default desktop look remains unchanged at 1.0. On high-DPI screens,
+    sizes are increased only modestly so the GUI does not become oversized on
+    a normal external monitor.
+    """
+    app = QtWidgets.QApplication.instance()
+    screen = None
+    if widget is not None and hasattr(widget, 'screen'):
+        screen = widget.screen()
+    if screen is None and app is not None:
+        screen = app.primaryScreen()
+    if screen is None:
+        return 1.0
+
+    dpi = screen.logicalDotsPerInch() or 96.0
+    scale = dpi / 96.0
+
+    # Keep scaling modest. This fixes tiny laptop text without making the
+    # already-good desktop layout look huge.
+    scale = _clamp(scale, 1.0, 1.14)
+
+    # Very small logical screens need layout space more than large widgets.
+    height = screen.availableGeometry().height()
+    if height < 850:
+        scale = min(scale, 1.06)
+    elif height < 950:
+        scale = min(scale, 1.10)
+
+    return scale
+
+
+def _scaled(value, scale):
+    return int(round(value * scale))
+
+
+def _make_arrow_icon(direction, color="#334155"):
+    """Create symmetric navigation-arrow icons.
+
+    Qt/platform standard arrows can have different intrinsic padding on
+    different systems. Drawing both icons from the same geometry keeps the
+    left and right buttons visually identical.
+    """
+    pixmap = QtGui.QPixmap(24, 24)
+    pixmap.fill(QtCore.Qt.transparent)
+    painter = QtGui.QPainter(pixmap)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    painter.setPen(QtCore.Qt.NoPen)
+    painter.setBrush(QtGui.QColor(color))
+
+    # Slightly larger, darker arrows: still symmetric, but easier to see
+    # on both light-gray navigation buttons and high-DPI displays.
+    if direction == "left":
+        points = [QtCore.QPointF(6, 12), QtCore.QPointF(17, 4), QtCore.QPointF(17, 20)]
+    else:
+        points = [QtCore.QPointF(18, 12), QtCore.QPointF(7, 4), QtCore.QPointF(7, 20)]
+
+    painter.drawPolygon(QtGui.QPolygonF(points))
+    painter.end()
+    return QtGui.QIcon(pixmap)
 
 
 class _MenuPolisher(QtCore.QObject):
@@ -929,6 +1016,24 @@ class Ui_MainWindow(object):
             self._menu_polisher = _MenuPolisher(MainWindow)
             app.installEventFilter(self._menu_polisher)
 
+        self._ui_scale = _screen_ui_scale(MainWindow)
+        # General controls scale only slightly with DPI. Fit controls are
+        # clamped separately below so they do not become too tall on laptops.
+        self._button_height = _scaled(23, self._ui_scale)
+        self._field_height = _scaled(23, self._ui_scale)
+        # Closed combo boxes are kept more compact than normal line edits.
+        # On some high-DPI laptops Qt makes combo boxes noticeably taller
+        # than line edits unless their maximum height is clamped separately.
+        # Dense right-side controls should not follow the laptop DPI scale.
+        # With a laptop attached to an external monitor, Qt/Windows can report
+        # a larger logical DPI, which made combo boxes too tall. Use compact
+        # fixed logical-pixel heights for form fields and dropdowns.
+        self._combo_height = 19
+        self._fit_field_height = 21
+        self._fit_combo_height = 19
+        self._top_button_height = _scaled(24, min(self._ui_scale, 1.05))
+        self._nav_icon_size = _scaled(16, min(self._ui_scale, 1.05))
+
         MainWindow.setMinimumSize(QtCore.QSize(1050, 720))
         MainWindow.setDockOptions(
             QtWidgets.QMainWindow.AnimatedDocks
@@ -936,7 +1041,8 @@ class Ui_MainWindow(object):
             | QtWidgets.QMainWindow.AllowTabbedDocks
         )
 
-        base_font = QtGui.QFont("Segoe UI", 9)
+        base_font = QtGui.QFont("Segoe UI")
+        base_font.setPointSizeF(9.0 * self._ui_scale)
         base_font.setStyleHint(QtGui.QFont.SansSerif)
         MainWindow.setFont(base_font)
 
@@ -980,8 +1086,10 @@ class Ui_MainWindow(object):
 
         # Keep the Fit analysis controls grouped at the top when its dock is
         # stretched. Extra height is absorbed below the complete form.
-        self.verticalLayout_8.setSpacing(4)
+        self.verticalLayout_8.setSpacing(_scaled(4, self._ui_scale))
         self.verticalLayout_8.setAlignment(QtCore.Qt.AlignTop)
+        self.gridLayout_9.setVerticalSpacing(_scaled(6, self._ui_scale))
+        self.gridLayout_9.setHorizontalSpacing(_scaled(6, self._ui_scale))
         self.gridLayout_9.setAlignment(QtCore.Qt.AlignTop)
         self.verticalLayout_8.addStretch(1)
         self.verticalLayoutWidget_4.setSizePolicy(
@@ -1032,8 +1140,10 @@ class Ui_MainWindow(object):
         )
         for button in navigation_buttons:
             button.setProperty("role", "navigation")
-            button.setMinimumWidth(34)
-            button.setMaximumWidth(42)
+            button.setMinimumWidth(_scaled(34, self._ui_scale))
+            button.setMaximumWidth(_scaled(42, self._ui_scale))
+            button.setMinimumHeight(self._top_button_height)
+            button.setIconSize(QtCore.QSize(self._nav_icon_size, self._nav_icon_size))
 
         file_buttons = (
             self.FCSfile0_button,
@@ -1044,6 +1154,7 @@ class Ui_MainWindow(object):
         )
         for button in file_buttons:
             button.setProperty("role", "fileTab")
+            button.setMinimumHeight(self._top_button_height)
             # Keep one file tab visibly active without changing its click signal.
             button.setCheckable(True)
             button.setAutoExclusive(True)
@@ -1073,17 +1184,16 @@ class Ui_MainWindow(object):
         # Small usability improvements that do not alter signals or data flow.
         for button in MainWindow.findChildren(QtWidgets.QPushButton):
             button.setCursor(QtGui.QCursor(QtCore.Qt.ArrowCursor))
-            button.setMinimumHeight(23)
+            button.setMinimumHeight(self._button_height)
             button_font = button.font()
             button_font.setBold(False)
             button_font.setWeight(QtGui.QFont.Normal)
             button.setFont(button_font)
 
         for combo in MainWindow.findChildren(QtWidgets.QComboBox):
-            combo.setMinimumHeight(23)
-            if combo.maximumHeight() < 23:
-                combo.setMaximumHeight(23)
-            combo.setMaxVisibleItems(14)
+            combo.setMinimumHeight(self._combo_height)
+            combo.setMaximumHeight(self._combo_height + 1)
+            combo.setMaxVisibleItems(max(8, min(25, combo.count())))
             combo.view().setTextElideMode(QtCore.Qt.ElideRight)
             combo.view().setIconSize(QtCore.QSize(0, 0))
             combo.view().setItemDelegate(_CleanComboItemDelegate(combo.view()))
@@ -1126,7 +1236,7 @@ class Ui_MainWindow(object):
         self._central_combo_delegates = []
         for combo in (self.showchunkscorr_dropdown, self.difflaw_dropdown):
             view = combo.view()
-            delegate = _CleanComboItemDelegate(view, minimum_height=28)
+            delegate = _CleanComboItemDelegate(view, minimum_height=24)
             view.setItemDelegate(delegate)
             self._central_combo_delegates.append(delegate)
 
@@ -1142,7 +1252,7 @@ class Ui_MainWindow(object):
                 row_width = max(combo.sizeHint().width(), text_width)
                 combo.setItemData(
                     row,
-                    QtCore.QSize(row_width, 28),
+                    QtCore.QSize(row_width, 24),
                     QtCore.Qt.SizeHintRole,
                 )
 
@@ -1151,11 +1261,11 @@ class Ui_MainWindow(object):
                 "  background: #ffffff;"
                 "  border: 1px solid #cfd8e6;"
                 "  border-radius: 3px;"
-                "  padding: 3px;"
+                "  padding: 2px;"
                 "  outline: none;"
                 "}"
                 "QAbstractItemView::item {"
-                "  padding: 2px 7px;"
+                "  padding: 1px 7px;"
                 "  border: none;"
                 "  border-radius: 3px;"
                 "}"
@@ -1178,7 +1288,7 @@ class Ui_MainWindow(object):
             edit.setMinimumHeight(23)
 
         # Allow the image placeholder text to fit comfortably on two lines.
-        self.imageName_button.setMinimumHeight(36)
+        self.imageName_button.setMinimumHeight(42)
 
         # Align the fit-range labels with the neighboring spin boxes.
         for label in (self.fitstart_label, self.fitstop_label):
@@ -1190,9 +1300,87 @@ class Ui_MainWindow(object):
             spinbox.setMinimumHeight(23)
             spinbox.lineEdit().setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
+        # Compact the Fit analysis controls explicitly. The general DPI-aware
+        # stylesheet keeps the GUI readable, but these controls should stay
+        # compact because the dock contains many rows.
+        fit_edits = tuple(
+            getattr(self, f"fit{index}_edit")
+            for index in range(11)
+        )
+        for edit in fit_edits:
+            edit.setMinimumHeight(self._fit_field_height)
+            edit.setMaximumHeight(self._fit_field_height + 1)
+
+        fit_checks = tuple(
+            getattr(self, f"fit{index}_checkBox")
+            for index in range(11)
+        ) + (self.fitweighted_checkBox,)
+        for checkbox in fit_checks:
+            checkbox.setMinimumHeight(self._fit_field_height)
+            checkbox.setMaximumHeight(self._fit_field_height + 2)
+
+        for spinbox in (self.fitstart_spinBox, self.fitstop_spinBox):
+            spinbox.setMinimumHeight(self._fit_field_height)
+            spinbox.setMaximumHeight(self._fit_field_height + 1)
+
+        self.fitModel_dropdown.setMinimumHeight(self._fit_combo_height)
+        self.fitModel_dropdown.setMaximumHeight(self._fit_combo_height + 1)
+        self.gridLayout_9.setVerticalSpacing(3)
+
+        # Apply the same compact treatment to the Calculate correlations
+        # and Diffusion analysis panels. These right-side docks contain
+        # dense forms, so they should use the compact field height instead
+        # of the general screen-scaled field height. This prevents tall
+        # dropdowns/text boxes on high-DPI laptop screens while preserving
+        # readability on the desktop screen.
+        self.gridLayout_7.setVerticalSpacing(3)
+        self.gridLayout_7.setHorizontalSpacing(_scaled(6, min(self._ui_scale, 1.05)))
+        self.verticalLayout_4.setSpacing(_scaled(3, min(self._ui_scale, 1.05)))
+
+        compact_corr_fields = (
+            self.resolution_edit,
+            self.chunkSize_edit,
+            self.algorithm_dropdown,
+            self.detector_dropdown,
+            self.corrs_dropdown,
+        )
+        for widget in compact_corr_fields:
+            widget.setMinimumHeight(self._fit_field_height)
+            widget.setMaximumHeight(self._fit_field_height + 1)
+        for combo in (self.corrs_dropdown, self.algorithm_dropdown, self.detector_dropdown):
+            combo.setMinimumHeight(self._combo_height)
+            combo.setMaximumHeight(self._combo_height + 1)
+
+        for button in (self.addToJoblist_button, self.calcCorrCurrentFile_button):
+            button.setMinimumHeight(self._fit_field_height + 1)
+            button.setMaximumHeight(self._fit_field_height + 3)
+
+        self.gridLayout_10.setVerticalSpacing(3)
+        self.gridLayout_10.setHorizontalSpacing(_scaled(6, min(self._ui_scale, 1.05)))
+
+        compact_diff_fields = (
+            self.w0_edit,
+            self.D_edit,
+            self.T_edit,
+            self.visc_edit,
+            self.diameter_edit,
+            self.keepFixed_dropdown,
+            self.calcDiameter_dropdown,
+        )
+        for widget in compact_diff_fields:
+            widget.setMinimumHeight(self._fit_field_height)
+            widget.setMaximumHeight(self._fit_field_height + 1)
+        for combo in (self.keepFixed_dropdown, self.calcDiameter_dropdown):
+            combo.setMinimumHeight(self._combo_height)
+            combo.setMaximumHeight(self._combo_height + 1)
+
+        for button in (self.updateDiffLaw_button, self.updateDiffLawDiameter_button):
+            button.setMinimumHeight(self._fit_field_height + 1)
+            button.setMaximumHeight(self._fit_field_height + 3)
+
         self.xcoord_edit.setMaximumWidth(80)
-        self.ycoord_edit.setMaximumWidth(80)
-        self.saveLabel_button.setMaximumWidth(70)
+        self.ycoord_edit.setMaximumWidth(_scaled(80, self._ui_scale))
+        self.saveLabel_button.setMaximumWidth(_scaled(70, self._ui_scale))
         self.showElements_widget.setMinimumSize(QtCore.QSize(120, 58))
         self.showElements_widget.setMaximumSize(QtCore.QSize(120, 58))
 
@@ -1204,12 +1392,20 @@ class Ui_MainWindow(object):
             "QHeaderView::section { font-weight: 400; }"
         )
 
-        # Standard Qt icons avoid external asset dependencies.
+        # Custom-drawn arrows avoid platform icon padding differences.
+        # This keeps the left and right arrows the same visual size on all screens.
         style = MainWindow.style()
-        self.prevFCSfile_button.setIcon(style.standardIcon(QtWidgets.QStyle.SP_ArrowBack))
-        self.nextFCSfile_button.setIcon(style.standardIcon(QtWidgets.QStyle.SP_ArrowForward))
-        self.prevImage_button.setIcon(style.standardIcon(QtWidgets.QStyle.SP_ArrowBack))
-        self.nextImage_button.setIcon(style.standardIcon(QtWidgets.QStyle.SP_ArrowForward))
+        self.prevFCSfile_button.setIcon(_make_arrow_icon("left"))
+        self.nextFCSfile_button.setIcon(_make_arrow_icon("right"))
+        self.prevImage_button.setIcon(_make_arrow_icon("left"))
+        self.nextImage_button.setIcon(_make_arrow_icon("right"))
+        for button in (
+            self.prevFCSfile_button,
+            self.nextFCSfile_button,
+            self.prevImage_button,
+            self.nextImage_button,
+        ):
+            button.setIconSize(QtCore.QSize(self._nav_icon_size, self._nav_icon_size))
         # Keep the compact OK button text-only; no redundant check icon.
         self.saveLabel_button.setIcon(QtGui.QIcon())
         self.actionOpen_image.setIcon(style.standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
@@ -1477,9 +1673,13 @@ class Ui_MainWindow(object):
                 border-color: #cbd5e1;
             }
 
+            QComboBox {
+                padding: 1px 6px;
+            }
+
             QComboBox::drop-down {
                 border: none;
-                width: 20px;
+                width: 18px;
             }
 
             QComboBox QAbstractItemView {
@@ -1508,13 +1708,13 @@ class Ui_MainWindow(object):
             QSpinBox#fitstart_spinBox,
             QSpinBox#fitstop_spinBox,
             QSpinBox#chunk_spinBox {
-                padding: 0px 6px 3px 6px;
+                padding: 0px 6px 0px 6px;
             }
 
             QSpinBox#fitstart_spinBox:focus,
             QSpinBox#fitstop_spinBox:focus,
             QSpinBox#chunk_spinBox:focus {
-                padding: 0px 6px 3px 6px;
+                padding: 0px 6px 0px 6px;
             }
 
             QCheckBox {
@@ -1678,6 +1878,25 @@ class Ui_MainWindow(object):
         self.progressBar.valueChanged.connect(self._update_progress_text_color)
         self._update_progress_text_color(self.progressBar.value())
 
+        # Conservative high-DPI overrides. The normal 96-DPI desktop appearance
+        # stays essentially unchanged, while laptop/high-DPI screens get slightly
+        # larger text and Matplotlib labels.
+        self._apply_adaptive_font_overrides(MainWindow)
+        self._scale_embedded_matplotlib_fonts()
+
+        # Re-apply compact fixed heights after all style-sheet/font changes.
+        # This is critical when Windows/Qt changes DPI mode after an external
+        # monitor is attached.
+        self._apply_dense_control_geometry(MainWindow)
+        QtCore.QTimer.singleShot(0, lambda: self._apply_dense_control_geometry(MainWindow))
+
+        # On small laptop screens the side docks become vertically cramped when
+        # all panels are stacked above each other. In that situation, group the
+        # side panels into tabbed dock stacks automatically. On large screens the
+        # original side-by-side/stacked layout is preserved.
+        self._auto_tabify_docks_for_small_screens(MainWindow)
+        QtCore.QTimer.singleShot(0, lambda: self._auto_tabify_docks_for_small_screens(MainWindow))
+
         # Ensure all dock-panel titles use normal-weight text, including on
         # platform styles that do not fully honor the QDockWidget rule above.
         for dock in MainWindow.findChildren(QtWidgets.QDockWidget):
@@ -1690,6 +1909,151 @@ class Ui_MainWindow(object):
         for widget in MainWindow.findChildren(QtWidgets.QWidget):
             widget.style().unpolish(widget)
             widget.style().polish(widget)
+
+
+    def _auto_tabify_docks_for_small_screens(self, MainWindow):
+        """Use tabbed dock stacks automatically on compact displays.
+
+        The generated UI places several dock widgets on the left and right. On
+        a desktop monitor this is useful, but on a laptop screen the docks can
+        be squeezed into very short panels. When the available screen area is
+        small, tabifying the docks keeps each panel usable without changing any
+        widget names or signal wiring.
+        """
+        screen = MainWindow.screen()
+        if screen is None:
+            app = QtWidgets.QApplication.instance()
+            screen = app.primaryScreen() if app is not None else None
+        if screen is None:
+            return
+
+        available = screen.availableGeometry()
+        compact_screen = available.width() < 1450 or available.height() < 900
+        if not compact_screen:
+            return
+
+        # Avoid doing this repeatedly when delayed layout passes run.
+        if getattr(self, "_small_screen_docks_tabified", False):
+            return
+        self._small_screen_docks_tabified = True
+
+        MainWindow.setDockOptions(
+            QtWidgets.QMainWindow.AnimatedDocks
+            | QtWidgets.QMainWindow.AllowNestedDocks
+            | QtWidgets.QMainWindow.AllowTabbedDocks
+        )
+
+        # Right-side analysis panels: use one tab stack instead of three short
+        # panels above each other. Raise Calculate correlations because this is
+        # normally the first panel used in the workflow.
+        MainWindow.tabifyDockWidget(self.dockWidget_3, self.dockWidget_4)
+        MainWindow.tabifyDockWidget(self.dockWidget_3, self.dockWidget_5)
+        self.dockWidget_3.raise_()
+
+        # Keep the left-side image, notes, and progress panels visible one
+        # above the other. Only the right-side analysis panels use tab stacks.
+
+        # Make the tabs visible and compact enough for laptop use.
+        for dock in (
+            self.dockWidget, self.dockWidget_2, self.dockWidget_3,
+            self.dockWidget_4, self.dockWidget_5, self.dockWidget_6,
+        ):
+            dock.setFeatures(
+                QtWidgets.QDockWidget.DockWidgetFloatable
+                | QtWidgets.QDockWidget.DockWidgetMovable
+            )
+            dock.setAllowedAreas(QtCore.Qt.AllDockWidgetAreas)
+
+
+    def _apply_adaptive_font_overrides(self, MainWindow):
+        """Apply small DPI-aware font corrections without hard-coding huge sizes."""
+        font_pt = 9.0 * self._ui_scale
+        title_pt = 11.0 * self._ui_scale
+        subtitle_pt = 8.5 * self._ui_scale
+        MainWindow.setStyleSheet(
+            MainWindow.styleSheet()
+            + f"""
+            QWidget {{
+                font-size: {font_pt:.2f}pt;
+            }}
+            QLabel[role="title"] {{
+                font-size: {title_pt:.2f}pt;
+            }}
+            QLabel[role="subtitle"] {{
+                font-size: {subtitle_pt:.2f}pt;
+            }}
+            QPushButton {{
+                min-height: {self._button_height}px;
+            }}
+            QPushButton[role="navigation"], QPushButton[role="fileTab"] {{
+                min-height: {self._top_button_height}px;
+            }}
+            QLineEdit, QSpinBox {{
+                min-height: {self._field_height}px;
+            }}
+            QComboBox {{
+                min-height: {self._combo_height}px;
+                max-height: {self._combo_height + 1}px;
+            }}
+            """
+        )
+
+    def _scale_embedded_matplotlib_fonts(self):
+        """Scale Matplotlib labels only modestly on high-DPI screens."""
+        if _mpl is None:
+            return
+
+        scale = self._ui_scale
+        mpl_values = {
+            "font.size": 9.0 * scale,
+            "axes.labelsize": 9.5 * scale,
+            "axes.titlesize": 9.5 * scale,
+            "xtick.labelsize": 8.5 * scale,
+            "ytick.labelsize": 8.5 * scale,
+            "legend.fontsize": 8.5 * scale,
+            "figure.titlesize": 9.5 * scale,
+            "axes.labelpad": 4.0 * scale,
+            "xtick.major.pad": 3.0 * scale,
+            "ytick.major.pad": 3.0 * scale,
+        }
+        _mpl.rcParams.update(mpl_values)
+
+        for mpl_widget in (
+            self.image_widget,
+            self.fingerprint_widget,
+            self.timetrace_widget,
+            self.correlations_widget,
+            self.difflaw_widget,
+        ):
+            canvas = getattr(mpl_widget, "canvas", None)
+            figure = getattr(canvas, "figure", None)
+            if figure is None:
+                figure = getattr(mpl_widget, "figure", None)
+            if figure is None:
+                continue
+
+            for axis in figure.get_axes():
+                axis.title.set_fontsize(mpl_values["axes.titlesize"])
+                axis.xaxis.label.set_fontsize(mpl_values["axes.labelsize"])
+                axis.yaxis.label.set_fontsize(mpl_values["axes.labelsize"])
+                axis.tick_params(
+                    axis="both",
+                    which="major",
+                    labelsize=mpl_values["xtick.labelsize"],
+                    pad=mpl_values["xtick.major.pad"],
+                )
+                axis.tick_params(
+                    axis="both",
+                    which="minor",
+                    labelsize=max(7.0, 8.0 * scale),
+                    pad=max(2.0, 2.5 * scale),
+                )
+                legend = axis.get_legend()
+                if legend is not None:
+                    for text in legend.get_texts():
+                        text.set_fontsize(mpl_values["legend.fontsize"])
+            if canvas is not None:
+                canvas.draw_idle()
 
     def _update_progress_text_color(self, value):
         """Switch progress text color according to the normalized percentage."""
@@ -1726,6 +2090,157 @@ class Ui_MainWindow(object):
                 edit.style().unpolish(edit)
                 edit.style().polish(edit)
                 edit.update()
+
+
+    def _apply_dense_control_geometry(self, MainWindow):
+        """Force compact, DPI-stable geometry for dense form controls.
+
+        The generated UI and Qt style engine can produce very different
+        QComboBox size hints when the same laptop is used with an external
+        monitor. This method intentionally fixes only the dense controls in
+        the right-side docks. Larger main-window widgets keep their responsive
+        behavior.
+        """
+        compact_combo_h = 19
+        compact_field_h = 21
+        compact_button_h = 22
+
+        dense_combos = (
+            self.fitModel_dropdown,
+            self.corrs_dropdown,
+            self.algorithm_dropdown,
+            self.detector_dropdown,
+            self.keepFixed_dropdown,
+            self.calcDiameter_dropdown,
+            self.showchunkscorr_dropdown,
+            self.difflaw_dropdown,
+        )
+
+        for combo in dense_combos:
+            combo.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            combo.setMinimumHeight(compact_combo_h)
+            combo.setMaximumHeight(compact_combo_h)
+            combo.setFixedHeight(compact_combo_h)
+            combo.setStyleSheet(
+                "QComboBox {"
+                "  min-height: 0px;"
+                f"  max-height: {compact_combo_h}px;"
+                f"  height: {compact_combo_h}px;"
+                "  padding: 0px 5px;"
+                "}"
+                "QComboBox::drop-down {"
+                "  width: 16px;"
+                "  border: none;"
+                "}"
+            )
+            view = combo.view()
+            if view is not None:
+                popup_item_h = 22
+                popup_rows = max(1, min(combo.count(), 18))
+                combo.setMaxVisibleItems(max(8, min(25, combo.count())))
+                view.setMinimumHeight(popup_rows * popup_item_h + 8)
+                view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+                view.setItemDelegate(_CleanComboItemDelegate(view, minimum_height=popup_item_h))
+                view.setStyleSheet(
+                    "QAbstractItemView {"
+                    "  background: #ffffff;"
+                    "  border: 1px solid #cfd8e6;"
+                    "  border-radius: 3px;"
+                    "  padding: 1px;"
+                    "  outline: none;"
+                    "}"
+                    "QAbstractItemView::item {"
+                    "  min-height: 22px;"
+                    "  padding: 1px 7px;"
+                    "  border: none;"
+                    "  border-radius: 3px;"
+                    "}"
+                    "QAbstractItemView::item:selected {"
+                    "  background: #e8f5ee;"
+                    "  color: #166534;"
+                    "}"
+                    "QAbstractItemView::indicator {"
+                    "  width: 0px; height: 0px; image: none; border: none;"
+                    "}"
+                )
+
+        dense_line_edits = [
+            self.resolution_edit, self.chunkSize_edit,
+            self.w0_edit, self.D_edit, self.T_edit, self.visc_edit, self.diameter_edit,
+        ] + [getattr(self, f"fit{i}_edit") for i in range(11)]
+
+        for edit in dense_line_edits:
+            edit.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            edit.setMinimumHeight(compact_field_h)
+            edit.setMaximumHeight(compact_field_h)
+            edit.setFixedHeight(compact_field_h)
+
+        dense_spinboxes = (self.fitstart_spinBox, self.fitstop_spinBox)
+        for spinbox in dense_spinboxes:
+            spinbox.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            spinbox.setMinimumHeight(compact_field_h)
+            spinbox.setMaximumHeight(compact_field_h)
+            spinbox.setFixedHeight(compact_field_h)
+            spinbox.lineEdit().setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            # Keep the number text optically centered in the compact spin box.
+            # Some DPI/style combinations apply asymmetric bottom padding,
+            # which makes the value appear too low.
+            spinbox.setStyleSheet(
+                "QSpinBox {"
+                "  padding: 0px 6px 0px 6px;"
+                f"  min-height: {compact_field_h}px;"
+                f"  max-height: {compact_field_h}px;"
+                "}"
+            )
+
+        dense_buttons = (
+            self.addToJoblist_button,
+            self.calcCorrCurrentFile_button,
+            self.overwriteFit_button,
+            self.newFit_button,
+            self.updateDiffLaw_button,
+            self.updateDiffLawDiameter_button,
+        )
+        for button in dense_buttons:
+            button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            button.setMinimumHeight(compact_button_h)
+            button.setMaximumHeight(compact_button_h)
+            button.setFixedHeight(compact_button_h)
+
+        fit_checks = tuple(getattr(self, f"fit{i}_checkBox") for i in range(11)) + (self.fitweighted_checkBox,)
+        for checkbox in fit_checks:
+            checkbox.setMinimumHeight(compact_field_h)
+            checkbox.setMaximumHeight(compact_field_h)
+            checkbox.setFixedHeight(compact_field_h)
+
+        self.gridLayout_7.setVerticalSpacing(3)
+        self.gridLayout_9.setVerticalSpacing(3)
+        self.gridLayout_10.setVerticalSpacing(3)
+        self.verticalLayout_4.setSpacing(3)
+        self.verticalLayout_8.setSpacing(3)
+
+        # The plot selectors sit above plots and should not stretch across the
+        # whole plot width. Keep them compact: wide enough for the longest item
+        # text plus the drop-down arrow, but not expanding with the available
+        # horizontal space.
+        compact_plot_selectors = (
+            (self.showchunkscorr_dropdown, 150, 260),
+            (self.difflaw_dropdown, 150, 235),
+        )
+        for combo, minimum_width, maximum_width in compact_plot_selectors:
+            font_metrics = combo.fontMetrics()
+            text_width = max(
+                font_metrics.horizontalAdvance(combo.itemText(i))
+                for i in range(combo.count())
+            )
+            combo_width = max(minimum_width, min(maximum_width, text_width + 42))
+            combo.setSizePolicy(
+                QtWidgets.QSizePolicy.Fixed,
+                QtWidgets.QSizePolicy.Fixed,
+            )
+            combo.setMinimumWidth(combo_width)
+            combo.setMaximumWidth(combo_width)
+            combo.setFixedWidth(combo_width)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate

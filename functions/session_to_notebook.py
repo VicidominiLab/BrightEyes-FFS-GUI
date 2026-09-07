@@ -124,7 +124,7 @@ def convert_session_to_notebook(lib, notebook_path):
     # check analysis
     analysis_object = ffs_file_object.get_analysis()
     list_of_g = analysis_object.settings.list_of_g
-    list_of_g_str = list_to_string(list_of_g)
+    list_of_g_str = list_to_string(list_of_g, element_type='auto')
     list_of_g_out_str = list_to_string(analysis_object.settings.elements)
     resolution = str(int(analysis_object.settings.resolution))
     averaging = analysis_object.settings.average
@@ -475,7 +475,14 @@ plt.ylim([-0.1*R, 2.1*R])"""),
 def list_to_string(my_list, element_type="'"):
     list_str = "["
     for i in my_list:
-        list_str += element_type + str(i) + element_type + ", "
+        if element_type == 'auto':
+            if type(i) == str:
+                element_type_str = "'"
+            else:
+                element_type_str = ""
+        else:
+            element_type_str = element_type
+        list_str += element_type_str + str(i) + element_type_str + ", "
     list_str = list_str[:-2] + "]"
     return list_str
 
