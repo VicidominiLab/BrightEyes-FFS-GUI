@@ -1,4 +1,4 @@
-from brighteyes_ffs.fcs.fcs_fit import fitfun_circfcs
+from brighteyes_ffs.fcs.fcs_analytical import fcs_circular_scanning
 
 def get_params():
     return {
@@ -7,11 +7,12 @@ def get_params():
         "paramNames"           : ["N", "Tau (ms)", "Beam waist (nm)", "Shape parameter", "Circle radius (nm)", "Circle period (µs)", "Offset/1000"],
         "paramFittable"        : [True, True, True, True, True, True, True],
         "paramDefvalues"       : [1, 1, 600, 3, 500, 320, 0],
-        # N, tau1, tau2, F, alpha, T, tautrip, SP, offset, A, B
-        "allparamDefvalues"    : [-1, -1, -1, -1, -1, -1, -1],
-        "paramFactors10"       : [1, 1, 1e-9, 1, 1e-9, 1e-6, 1e-3],
-        "paramMinbound"        : [0, 1e-3, 0, 0, 0, 0, 0],
-        "paramMaxbound"        : [1e6, 1000, 10000, 100, 1e6, 1e6, 1e6],
-        "fitfunctionName"      : fitfun_circfcs,
-        "fitfunctionParamUsed" : [0, 1, 2, 3, 4, 5, 6]
+        "paramFactors10"       : [1, 1e-3, 1e-9, 1, 1e-9, 1e-6, 1],
+        
+                                # N, tau_D, w, SF, orbit_time, orbit_radius, offset, vx, vy
+        "allparamDefvalues"    : [-1, -1, -1, -1, -1, -1, -1, 0, 0],
+        "paramMinbound"        : [0, 1e-9, 0, 0, 0, 0, -1e6, 0, 0],
+        "paramMaxbound"        : [1e10, 1e10, 1e10, 100, 1e10, 1e10, 1e10, 1e10, 1e10],
+        "fitfunctionName"      : fcs_circular_scanning,
+        "fitfunctionParamUsed" : [0, 1, 2, 3, 5, 4, 6]
     }

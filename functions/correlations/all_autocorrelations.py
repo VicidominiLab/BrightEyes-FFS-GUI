@@ -6,7 +6,7 @@ def get_params(det_type='Square 5x5'):
         listOfG = [i for i in range(N)]
         elements = ['det' + str(i) + 'x' + str(i) for i in range(N)]
     
-    elif det_type == 'Genoa Instruments PRISM 7x7':
+    elif det_type == 'PRISM 7x7':
         N = 49
         listOfG = [i for i in range(N)]
         elements = ['det' + str(i) + 'x' + str(i) for i in range(N)]

@@ -1,11 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_data_files
+
 #from PyInstaller.utils.hooks import collect_submodules
 
 # Collect all submodules in 'functions'
 #hiddenimports_folder = collect_submodules('functions')
 
 block_cipher = None
+
+# phconvert loads JSON specifications at runtime, including:
+# phconvert/specs/photon-hdf5_specs.json
+# These non-Python package files must be included explicitly by PyInstaller.
+phconvert_datas = collect_data_files("phconvert")
 
 
 a = Analysis(
@@ -23,8 +30,8 @@ a = Analysis(
 		('files/brighteyes_ffs_startup_splash.png', 'files/brighteyes_ffs_startup_splash.png'),
 		('files/Cells_DEKegfp_75x75um.jpg', 'files/Cells_DEKegfp_75x75um.jpg'),
 		('functions', 'functions')
-    ],
-    hiddenimports=['libttp', 'nbformat', 'brighteyes_ffs.pch.atimes2pch', 'matplotlib.backends.backend_qt5agg', 'brighteyes_ffs.fcs.atimes_data', 'brighteyes_ffs.fcs.atimes_data.atimes2pch', 'brighteyes_ffs.fcs.atimes2corrparallel',  'brighteyes_ffs.fcs_gui.correlation_functions_class', 'functions', 'xsdata_pydantic_basemodel.hooks', 'xsdata_pydantic_basemodel.hooks.class_type'],
+    ] + phconvert_datas,
+    hiddenimports=['libttp', 'nbformat', 'rfc3987', 'brighteyes_ffs.pch.atimes2pch', 'matplotlib.backends.backend_qt5agg', 'brighteyes_ffs.fcs.atimes_data', 'brighteyes_ffs.fcs.atimes_data.atimes2pch', 'brighteyes_ffs.fcs.atimes2corrparallel',  'brighteyes_ffs.fcs_gui.correlation_functions_class', 'functions', 'xsdata_pydantic_basemodel.hooks', 'xsdata_pydantic_basemodel.hooks.class_type'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

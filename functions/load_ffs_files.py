@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QFileDialog, QDialog
+from PyQt5.QtWidgets import QFileDialog, QDialog, QInputDialog, QMessageBox
 import numpy as np
 import h5py
 import os.path as ospath
@@ -122,7 +122,7 @@ def open_ffs(fname=''):
     ===========================================================================
     """
     
-    ftype = "FFS file (*.bin *.h5 *.hdf5 *.tiff *.tif *.czi *.csv *.ptu)"
+    ftype = "FFS file (*.bin *.h5 *.hdf5 *.tiff *.tif *.czi *.csv *.ptu *.mat *.t3r)"
     fname = open_dialog('Select FFS file ' + fname, ftype, '/')
     
     if fname != "":
@@ -227,3 +227,25 @@ def open_dialog(windowTitle='Open file', ftype='*.bin', directory=''):
         fname = str(filename[0])
     
     return fname
+
+
+def get_dwell_time_user_input(self):
+    dwell_time_us, accepted = QInputDialog.getDouble(
+        self,
+        "CZI dwell time",
+        "Enter the pixel dwell time (\u00b5s):",
+        1.0,       # Initial value
+        0.000001,  # Minimum value
+        1_000_000, # Maximum value
+        6,         # Number of decimals
+    )
+
+    # Cancel the entire import when the user cancels the popup
+    if not accepted:
+        return None
+
+    if dwell_time_us <= 0:
+        QMessageBox.warning(self, "Invalid dwell time", "The dwell time must be greater than zero.",)
+        return None
+    
+    return dwell_time_us

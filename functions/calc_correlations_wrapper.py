@@ -4,6 +4,12 @@ from brighteyes_ffs.fcs.atimes2corrparallel import atimes_file_2_corr
 from brighteyes_ffs.pch.atimes2pch import atimes_file_2_pch
 
 def calc_g_wrapper(self, file, anSettings):
+    
+    if file.fname.endswith("ptu") or file.fname.endswith(".h5"):
+        mdata = file.metadata
+    else:
+        mdata = None
+    
     if anSettings.algorithm == 'pch':
         try:
             # -------------------- PCH intensity trace --------------------
@@ -13,7 +19,7 @@ def calc_g_wrapper(self, file, anSettings):
                                             binsize=anSettings.resolution,
                                             split=anSettings.chunksize,
                                             time_trace=True,
-                                            metadata=file.metadata,
+                                            metadata=mdata,
                                             root=self,
                                             list_of_g_out=anSettings.elements,
                                             algorithm=anSettings.algorithm)
@@ -68,7 +74,7 @@ def calc_g_wrapper(self, file, anSettings):
                                         accuracy=anSettings.resolution,
                                         split=anSettings.chunksize,
                                         time_trace=True,
-                                        metadata=file.metadata,
+                                        metadata=mdata,
                                         root=self,
                                         averaging=anSettings.average,
                                         list_of_g_out=anSettings.elements,
@@ -81,7 +87,7 @@ def calc_g_wrapper(self, file, anSettings):
                                         accuracy=anSettings.resolution,
                                         split=anSettings.chunksize,
                                         time_trace=True,
-                                        metadata=file.metadata,
+                                        metadata=mdata,
                                         root=self,
                                         list_of_g_out=anSettings.elements,
                                         algorithm=anSettings.algorithm)

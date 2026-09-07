@@ -43,7 +43,7 @@ def get_params(det_type='Square 5x5'):
                    '22x12+21x11+26x16+20x10+25x15+30x20+24x14+29x19+28x18'
                    ]
     
-    else:
+    elif det_type == 'Airyscan 32':
         elements = []
         for angle in [0, 60, 120, 180, 240, 300]:
             for dist in [1, 2]:
@@ -60,6 +60,29 @@ def get_params(det_type='Square 5x5'):
                    '0x10+5x2+16x0+6x9+17x1+18x8+15x3+4x11+14x12',
                    '14x4+4x0+0x1+1x8+15x5+5x6+6x7+16x17+17x18+13x3+3x2+2x9+12x11+11x10',
                    '0x8+4x1+14x0+3x9+13x2+12x10+5x7+15x6+16x18']
+    else:
+        # PRISM
+        listOfX = []
+        listOfY = []
+        for vert in range(13):
+            for hor in range(13):
+                listOfY.append(vert-6)
+                listOfX.append(hor-6)
+        avList = [list_of_pixel_pairs_at_distance([listOfY[i], listOfX[i]], pixelsOff=[], N=49) for i in range(len(listOfX))]
+        idx_empty = [i for i in range(len(avList)) if avList[i] == []]
+        avList = [avList[i] for i in range(len(avList)) if i not in idx_empty]
+        listOfX = [listOfX[i] for i in range(len(listOfX)) if i not in idx_empty]
+        listOfY = [listOfY[i] for i in range(len(listOfY)) if i not in idx_empty]
+        
+        avListStr = []
+        for avSingleDist in avList:
+            avstr = ''
+            for j in avSingleDist:
+                avstr += str(j[0]) + 'x' + str(j[1]) + '+'
+            avListStr.append(avstr[0:-1])
+            
+        elements = ['V'+str(listOfY[i])+'_H'+str(listOfX[i]) for i in range(len(listOfX))]
+        average = avListStr
     
     listOfG = ['crossAll']
     mode = 'All cross-correlations'

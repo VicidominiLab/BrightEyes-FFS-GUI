@@ -1,4 +1,4 @@
-from brighteyes_ffs.fcs.fcs_fit import fcs_fit_dualfocus
+from brighteyes_ffs.fcs.fcs_analytical import fcs_dualfocus
 
 def get_params():
     return {
@@ -7,11 +7,12 @@ def get_params():
         "paramNames"           : ["N", "D (um^2/s)", "Beam waist (nm)", "Shape parameter", "rho (nm)", "Offset"],
         "paramFittable"        : [True, True, True, True, True, True],
         "paramDefvalues"       : [1, 1, 600, 3, 150, 0],
-        # [c, tauD, w2 for all, SF for all, rhox for all, rhoy for all, vx, vy, offset for all]
-        "allparamDefvalues"    : [-1, -1, -1, -1, -1, 0, 0, 0, -1] ,
-        "paramFactors10"       : [1, 1, 1, 1, 1, 1],
+        "paramFactors10"       : [1, 1e-12, 1e-9, 1, 1e-9, 1],
+        
+                               # [N, D, w, SF, rhox, rhoy, offset, vx, vy
+        "allparamDefvalues"    : [-1, -1, -1, -1, -1, 0, -1, 0, 0] ,
         "paramMinbound"        : [1e-3, 1e-3, 1, 0.1, 0, 0, -1e6, -1e6, -1e6],
         "paramMaxbound"        : [1e6, 1e4, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6, 1e6],
-        "fitfunctionName"      : fcs_fit_dualfocus,
-        "fitfunctionParamUsed" : [0, 1, 2, 3, 4, 8]
+        "fitfunctionName"      : fcs_dualfocus,
+        "fitfunctionParamUsed" : [0, 1, 2, 3, 4, 6]
     }
