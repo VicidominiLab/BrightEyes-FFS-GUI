@@ -701,10 +701,15 @@ def plot_timetrace(self, x, y, splits=None, chunks_off=None):
 def update_analysis(self, file):
     print('plot correlations')
     # plot correlations
+    axes, axes2 = self.ui.correlations_widget.canvas.axes, self.ui.correlations_widget.canvas.axes2
+    x_limits, y_limits = axes.get_xlim(), axes.get_ylim()
+    x2_limits, y2_limits = axes2.get_xlim(), axes2.get_ylim()
+
     self.ui.correlations_widget.canvas.axes.clear()
     self.ui.correlations_widget.canvas.axes.set_facecolor((1, 1, 1))
     self.ui.correlations_widget.canvas.axes2.clear()
     self.ui.correlations_widget.canvas.axes2.set_facecolor((1, 1, 1))
+    curve_groups_old, fit_groups_old, fit_residuals_groups_old = self.ui.correlations_widget.empty_curve_register()
     self.current_corrs = []
 
     plotcolor = 0
@@ -733,8 +738,6 @@ def update_analysis(self, file):
             elements = analysis.settings.elements # central, sum3x3, sum5x5
             algorithm = analysis.settings.algorithm # central, sum3x3, sum5x5
             corrshow = str(self.ui.showchunkscorr_dropdown.currentText())
-            self.scatter_handles = [] # list to store scatter handles
-            self.fit_handles = [] # list to store scatter handles
             for element in elements:
                 if corrshow == "Show average all active chunks" or mode == 'Curve from file':
                     Gsingle = analysis.get_corr(element)
@@ -757,7 +760,9 @@ def update_analysis(self, file):
                         ymin = np.min((ymin, np.min(y)))
                         ymax = 1.1*np.max((ymax, np.max(y)))
 
-                        self.ui.correlations_widget.canvas.axes.scatter(x, y,label=element, s=15, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
+                        scatter_handle, = self.ui.correlations_widget.canvas.axes.scatter(x, y,label=element, s=15, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
+                        self.ui.correlations_widget.register_curve(element, scatter_handle)
+
                         self.current_corrs.append(np.column_stack((x, y)))
                         plotcolor += 1
                         Nplots += 1
@@ -778,7 +783,7 @@ def update_analysis(self, file):
                             #self.correlations_widget.canvas.axes.plot(x[1:], y[1:]-std[1:])
                         scatter_handle = self.ui.correlations_widget.canvas.axes.scatter(x[1:], y[1:], s=10, alpha=0.7, label=element, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
                         self.current_corrs.append(np.column_stack((x[1:], y[1:])))
-                        self.scatter_handles.append(scatter_handle)  # Store scatter handle
+                        self.ui.correlations_widget.register_curve(element, scatter_handle)
                         plotcolor += 1
                         Nplots += 1
 
@@ -797,10 +802,11 @@ def update_analysis(self, file):
                                     yminfit = np.min((yminfit, np.min(y[start:stop])))
                                     ymaxfit = np.max((ymaxfit, np.max(y[start:stop])))
                                     if fit[0].fitfunction_label not in ['Flow heat map', 'Asymmetry heat map', 'Model-free displacement analysis']:
-                                        fit_handle = self.ui.correlations_widget.canvas.axes.plot(x[start:stop], y[start:stop] - fitres, linewidth=1.0, color=color_from_map(j, 0, len(fit)+1, 'gist_earth'))
-                                        self.ui.correlations_widget.canvas.axes2.plot(x[start:stop], fitres, linewidth=0.7, color=color_from_map(j, 0, len(fit)+1, 'gist_earth'))
-                                        self.fit_handles.append(fit_handle)  # Store fit handle
+                                        fit_handle, = self.ui.correlations_widget.canvas.axes.plot(x[start:stop], y[start:stop] - fitres, linewidth=1.0, color=color_from_map(j, 0, len(fit)+1, 'gist_earth'))
+                                        fit_residuals_handle, = self.ui.correlations_widget.canvas.axes2.plot(x[start:stop], fitres, linewidth=0.7, color=color_from_map(j, 0, len(fit)+1, 'gist_earth'))
                                         self.current_corrs.append(np.column_stack((x[start:stop], y[start:stop] - fitres)))
+                                        self.ui.correlations_widget.register_curve(element, fit_handle, group_type='fit')
+                                        self.ui.correlations_widget.register_curve(element, fit_residuals_handle, group_type='residuals')
 
             if fitfound:
                 xmin = x[start]
@@ -817,25 +823,20 @@ def update_analysis(self, file):
                 xscaling = 'linear'
                 yscaling = 'log'
 
-            self.ui.correlations_widget.canvas.axes.set_xlim([xmin, xmax])
-            self.ui.correlations_widget.canvas.axes2.set_xlim([xmin, xmax])
+            if not self.ui.correlations_widget._lock_axes_range:
+                self.ui.correlations_widget.canvas.axes.set_xlim([xmin, xmax])
+                self.ui.correlations_widget.canvas.axes2.set_xlim([xmin, xmax])
+            else:
+                self.ui.correlations_widget.canvas.axes.set_xlim([x_limits[0], x_limits[1]])
+                self.ui.correlations_widget.canvas.axes2.set_xlim([x2_limits[0], x2_limits[1]])
             if Nplots > 0 and Nplots < 13:
                 self.ui.correlations_widget.canvas.axes.legend(fontsize=7, frameon=False)  # Ensure legend exists
-                # Now enable picking on the scatter plot points and the legend items
-                for handle in self.scatter_handles:
-                    handle.set_picker(True)
-                # Enable picking for the legend items
-                legend = self.ui.correlations_widget.canvas.axes.get_legend()
-                if legend is not None:
-                    for legline in legend.get_lines():
-                        legline.set_picker(True)  # Enable picking for legend lines
-
-                    # Connect the pick event to the on_legend_click method
-                    self.ui.correlations_widget.canvas.mpl_connect("pick_event", self.on_legend_click)
 
             if ymin is not np.nan and ymax is not np.nan:
-                self.ui.correlations_widget.canvas.axes.set_ylim([ymin, np.max((ymin+0.001, ymax))])
-
+                if not self.ui.correlations_widget._lock_axes_range:
+                    self.ui.correlations_widget.canvas.axes.set_ylim([ymin, np.max((ymin+0.001, ymax))])
+                else:
+                    self.ui.correlations_widget.canvas.axes.set_ylim([y_limits[0], y_limits[1]])
 
     self.ui.correlations_widget.canvas.axes.set_xscale(xscaling)
     self.ui.correlations_widget.canvas.axes.set_yscale(yscaling)
@@ -850,6 +851,7 @@ def update_analysis(self, file):
     self.ui.correlations_widget.canvas.axes2.tick_params(axis='both', which='minor', labelsize=6)
 
     self.ui.correlations_widget.canvas.draw()
+    self.ui.correlations_widget.restore_curve_visibility(curve_groups_old, fit_groups_old, fit_residuals_groups_old)
 
 
 def remove_image(self, imageNr='active'):
@@ -2286,19 +2288,6 @@ class BrightEyesFFS(QMainWindow):
                                 file.update(timetrace=self.data, airy=np.sum(self.data.astype(float), 0))
                 update_buttons(self)
             self.update_progress_bar(100, "Done.")
-
-    def on_legend_click(self, event):
-        artist = event.artist
-        # Check if the clicked item is part of a scatter or fit line
-        for i in range(len(self.scatter_handles)):
-            scatter_handle = self.scatter_handles[i]
-            if artist == scatter_handle:
-                # Toggle visibility of both the scatter and the corresponding fit line
-                scatter_handle.set_visible(not scatter_handle.get_visible())
-                if i < len(self.fit_handles):
-                    fit_handle = self.fit_handles[i][0]
-                    fit_handle.set_visible(False)
-                self.ui.correlations_widget.canvas.draw()
 
     def use_current_fit_as_experimental_data(self):
         use_fit_as_data(self)
