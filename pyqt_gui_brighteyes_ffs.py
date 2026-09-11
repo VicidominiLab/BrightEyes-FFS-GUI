@@ -1308,8 +1308,12 @@ class Ui_MainWindow(object):
             for index in range(11)
         )
         for edit in fit_edits:
-            edit.setMinimumHeight(self._fit_field_height)
-            edit.setMaximumHeight(self._fit_field_height + 1)
+            edit.setProperty("fitValue", True)
+            edit.setSizePolicy(
+                QtWidgets.QSizePolicy.Expanding,
+                QtWidgets.QSizePolicy.Fixed,
+            )
+            edit.setFixedHeight(self._fit_field_height)
 
         fit_checks = tuple(
             getattr(self, f"fit{index}_checkBox")
@@ -1653,6 +1657,13 @@ class Ui_MainWindow(object):
                 border-color: #a5b4fc;
             }
 
+            /* Fit value fields keep one exact outer height on every style. */
+            QLineEdit[fitValue="true"] {
+                min-height: 21px;
+                max-height: 21px;
+                padding: 0px 6px;
+            }
+
             QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QPlainTextEdit:focus {
                 border: 1px solid #6366f1;
                 padding: 2px 6px;
@@ -1728,6 +1739,12 @@ class Ui_MainWindow(object):
                override. */
             QCheckBox:disabled {
                 color: #9ca3af;
+            }
+
+            /* Disabled controls for real fit parameters keep a readable
+               parameter name. Only their disabled indicator is muted. */
+            QCheckBox[fitParameter="true"]:disabled {
+                color: #172033;
             }
 
             QCheckBox::indicator {
@@ -1888,7 +1905,31 @@ class Ui_MainWindow(object):
         # This is critical when Windows/Qt changes DPI mode after an external
         # monitor is attached.
         self._apply_dense_control_geometry(MainWindow)
-        QtCore.QTimer.singleShot(0, lambda: self._apply_dense_control_geometry(MainWindow))
+        QtCore.QTimer.singleShot(
+            0, lambda: self._apply_dense_control_geometry(MainWindow)
+        )
+
+        # The generated UI creates its fit controls out of display order.
+        # Define a visual focus chain so Tab moves through each parameter's
+        # checkbox and value field from top to bottom.
+        fit_tab_widgets = [self.fitModel_dropdown]
+        for index in range(11):
+            fit_tab_widgets.extend((
+                getattr(self, f"fit{index}_checkBox"),
+                getattr(self, f"fit{index}_edit"),
+            ))
+        fit_tab_widgets.extend((
+            self.fitweighted_checkBox,
+            self.fitstart_spinBox,
+            self.fitstop_spinBox,
+            self.overwriteFit_button,
+            self.newFit_button,
+        ))
+        for current_widget, next_widget in zip(
+            fit_tab_widgets,
+            fit_tab_widgets[1:],
+        ):
+            QtWidgets.QWidget.setTabOrder(current_widget, next_widget)
 
         # On small laptop screens the side docks become vertically cramped when
         # all panels are stacked above each other. In that situation, group the
@@ -2073,12 +2114,19 @@ class Ui_MainWindow(object):
             self.progressBar.update()
 
     def _update_fit_unavailable_fields(self, *_args):
-        """Grey NaN values whose matching fit parameter is unavailable."""
+        """Style unavailable values without muting real parameter names."""
         for index in range(11):
             checkbox = getattr(self, f"fit{index}_checkBox", None)
             edit = getattr(self, f"fit{index}_edit", None)
             if checkbox is None or edit is None:
                 continue
+
+            is_parameter = checkbox.text().strip().casefold() != "none"
+            if bool(checkbox.property("fitParameter")) != is_parameter:
+                checkbox.setProperty("fitParameter", is_parameter)
+                checkbox.style().unpolish(checkbox)
+                checkbox.style().polish(checkbox)
+                checkbox.update()
 
             unavailable = (
                 checkbox.text().strip().casefold() == "none"
@@ -2174,6 +2222,11 @@ class Ui_MainWindow(object):
             edit.setMinimumHeight(compact_field_h)
             edit.setMaximumHeight(compact_field_h)
             edit.setFixedHeight(compact_field_h)
+
+        # A checkbox's size hint must not stretch an individual Fit row.
+        for row in range(11):
+            self.gridLayout_9.setRowMinimumHeight(row, compact_field_h)
+            self.gridLayout_9.setRowStretch(row, 0)
 
         dense_spinboxes = (self.fitstart_spinBox, self.fitstop_spinBox)
         for spinbox in dense_spinboxes:
