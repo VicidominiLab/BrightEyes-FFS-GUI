@@ -37,8 +37,6 @@ def calc_g_wrapper(self, file, anSettings):
                               max_k=30)
             
             raw_data = load_atimes_data(file.fname, channels='auto', perform_calib=False)
-            raw_data.macrotime = 1e-12 # raw macrotimes must be in ps
-            raw_data.microtime = 1e-12 # raw microtimes must be in ps
             file.metadata.duration = atimes_data_2_duration(raw_data, macrotime=raw_data.macrotime, subtract_start_time=False)
         
     elif anSettings.algorithm == 'tt2corr':
@@ -54,9 +52,7 @@ def calc_g_wrapper(self, file, anSettings):
                                        parallel_prefer='threads')
         
         raw_data = load_atimes_data(file.fname, channels='auto', perform_calib=False)
-        raw_data.macrotime = 1e-12 # raw macrotimes must be in ps
-        raw_data.microtime = 1e-12 # raw microtimes must be in ps
-        file.metadata.duration = atimes_data_2_duration(raw_data, macrotime=raw_data.macrotime, subtract_start_time=False)
+        file.metadata.duration = atimes_data_2_duration(raw_data, subtract_start_time=False)
         
     elif anSettings.list_of_g[0] == "crossAll":
         #check for averaging first
