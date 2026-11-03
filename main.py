@@ -1440,6 +1440,8 @@ def perform_fit(self, updateAll=False):
         for f in range(len(allfits)):
             # get data
             fit = allfits[f]
+            print('good chunks')
+            print(analysis.corrs.good_chunks)
             G = analysis.get_corr(fit.data).average(analysis.corrs.good_chunks)
 
             r = fit.fitrange
@@ -1609,9 +1611,18 @@ def perform_fit(self, updateAll=False):
 
 def copy_correlation(self):
     file = getfile(self)
+    if file is None:
+        return
     file.copy_correlation(-1)
     update_buttons(self)
     update_plots(self, updateAll=[False, False, False, True])
+
+def mark_as_favourite(self):
+    file = getfile(self)
+    if file is None:
+        return
+    file.mark_as_favourite = not file.mark_as_favourite
+    update_buttons(self)
 
 def use_fit_as_data(self):
     file = getfile(self)
@@ -1706,7 +1717,7 @@ def update_diameter(self):
 
 def update_buttons(self, updatechunks=True, updateOnlyButtonName=False):
     print('update buttons')
-    print('Version 2026-07-28')
+    print('Version 2026-10-28')
     self.ui.notes_edit.setPlainText(self.ffslib.notes)
     self.setWindowTitle(f"BrightEyes-FFS - {self.filePath}" if self.filePath else "BrightEyes-FFS")
     Nfiles = nrfiles(self)
@@ -1720,6 +1731,11 @@ def update_buttons(self, updatechunks=True, updateOnlyButtonName=False):
             file = getfile(self, currentFileNr)
             fButtons[i].setText(file.label)
             coords = file.metadata.coords
+            try:
+                is_fav = bool(file.mark_as_favourite)
+            except:
+                is_fav = False
+            fButtons[i].setFavourite(is_fav)
             if i == buttonNr:
                 # color this button
                 #fButtons[i].setStyleSheet("background-color:" + ap("actbut"))
@@ -1826,9 +1842,11 @@ def update_buttons(self, updatechunks=True, updateOnlyButtonName=False):
             if Newfilebutton == False:
                 # add new button to select file
                 fButtons[i].setText("New file")
+                fButtons[i].setFavourite(False)
                 Newfilebutton = True
             else:
                 fButtons[i].setText("File " + str(i+1))
+                fButtons[i].setFavourite(False)
             # uncolor this button
             fButtons[i].setStyleSheet("background-color:" + ap("fbcol"))
     if Nfiles == 0:
@@ -1916,6 +1934,7 @@ class BrightEyesFFS(QMainWindow):
         self.ui.actionPlot_in_Jupyter_Notebook.triggered.connect(self.plot_jupyter_notebook)
         self.ui.actionCreate_Jupyter_Notebook.triggered.connect(self.create_jupyter_notebook)
         self.ui.actionFilter_out_bad_chunks.triggered.connect(self.filter_out_bad_chunks)
+        self.ui.actionMark_as_favourite.triggered.connect(self.mark_file_as_favourite)
 
         self.ui.correlations_treeWidget.clicked.connect(self.show_analysis)
         self.ui.actionCorrelation.triggered.connect(self.calc_corr_active_file)
@@ -2294,6 +2313,9 @@ class BrightEyesFFS(QMainWindow):
 
     def copy_current_correlation(self):
         copy_correlation(self)
+
+    def mark_file_as_favourite(self):
+        mark_as_favourite(self)
 
     def plot_jupyter_notebook(self):
         fname = r'brighteyes_plot_saved_session_' + datetime.datetime.now().strftime("%Y_%m_%d_%H%M%S")

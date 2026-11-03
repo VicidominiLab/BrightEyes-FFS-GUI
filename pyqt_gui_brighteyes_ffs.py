@@ -147,6 +147,15 @@ class _FileTabButton(QtWidgets.QPushButton):
         self.setAutoExclusive(True)
         self.setAttribute(QtCore.Qt.WA_Hover, True)
 
+    def setFavourite(self, favourite=True):
+        """Mark this FFS-file button as a visual favourite."""
+        self.setProperty("favourite", bool(favourite))
+        self.update()
+
+    def isFavourite(self):
+        """Return whether this FFS-file button is a visual favourite."""
+        return bool(self.property("favourite"))
+
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
@@ -155,8 +164,30 @@ class _FileTabButton(QtWidgets.QPushButton):
         hovered = self.underMouse()
         pressed = self.isDown()
         active = self.isChecked()
+        favourite = bool(self.property("favourite"))
 
-        if active:
+        if favourite:
+            # A warm gold gradient makes bookmarked FFS files stand out while
+            # still allowing the checked state to identify the active file.
+            if active:
+                gradient = QtGui.QLinearGradient(rect.topLeft(), rect.bottomRight())
+                gradient.setColorAt(0.0, QtGui.QColor('#f59e0b'))
+                gradient.setColorAt(1.0, QtGui.QColor('#ea580c'))
+                background = gradient
+                border = '#c2410c'
+                foreground = '#ffffff'
+            else:
+                gradient = QtGui.QLinearGradient(rect.topLeft(), rect.bottomRight())
+                gradient.setColorAt(0.0, QtGui.QColor('#fff7d6'))
+                gradient.setColorAt(1.0, QtGui.QColor('#fed7aa'))
+                background = gradient
+                border = '#f59e0b'
+                foreground = '#9a3412'
+            if pressed:
+                border = '#9a3412'
+            elif hovered:
+                border = '#d97706'
+        elif active:
             background = '#4f46e5'
             border = '#4f46e5'
             foreground = '#ffffff'
@@ -184,7 +215,10 @@ class _FileTabButton(QtWidgets.QPushButton):
             foreground = '#858bb6'
 
         painter.setPen(QtGui.QPen(QtGui.QColor(border), 1.0))
-        painter.setBrush(QtGui.QColor(background))
+        if isinstance(background, str):
+            painter.setBrush(QtGui.QColor(background))
+        else:
+            painter.setBrush(background)
         painter.drawRoundedRect(rect, 5.0, 5.0)
 
         painter.setPen(QtGui.QColor(foreground))
@@ -967,6 +1001,8 @@ class Ui_MainWindow(object):
         self.actionCopy_current_correlation.setObjectName("actionCopy_current_correlation")
         self.actionFilter_out_bad_chunks = QtWidgets.QAction(MainWindow)
         self.actionFilter_out_bad_chunks.setObjectName("actionFilter_out_bad_chunks")
+        self.actionMark_as_favourite = QtWidgets.QAction(MainWindow)
+        self.actionMark_as_favourite.setObjectName("actionMark_as_favourite")
         self.actionCurrent_Image = QtWidgets.QAction(MainWindow)
         self.actionCurrent_Image.setObjectName("actionCurrent_Image")
         self.actionPlot_in_Jupyter_Notebook = QtWidgets.QAction(MainWindow)
@@ -997,6 +1033,8 @@ class Ui_MainWindow(object):
         self.menuTools.addAction(self.actionPlot_in_Jupyter_Notebook)
         self.menuTools.addAction(self.actionCreate_Jupyter_Notebook)
         self.menuTools.addSeparator()
+        self.menuTools.addAction(self.actionMark_as_favourite)
+        self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionFilter_out_bad_chunks)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuCalculate.menuAction())
@@ -1006,7 +1044,69 @@ class Ui_MainWindow(object):
         self.retranslateUi(MainWindow)
         self.showElements_widget.setCurrentRow(2)
         self.apply_professional_style(MainWindow)
+        self._configure_favourite_files()
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def _file_tab_buttons(self):
+        """Return the five visible FFS-file selector buttons in order."""
+        return (
+            self.FCSfile0_button,
+            self.FCSfile1_button,
+            self.FCSfile2_button,
+            self.FCSfile3_button,
+            self.FCSfile4_button,
+        )
+
+    def _configure_favourite_files(self):
+        """Wire Tools > Mark as favourite to the currently selected FFS file."""
+        self.actionMark_as_favourite.setToolTip(
+            "Mark or unmark the selected FFS file as a favourite"
+        )
+        self.actionMark_as_favourite.triggered.connect(
+            self._toggle_current_file_favourite
+        )
+        for button in self._file_tab_buttons():
+            button.setFavourite(False)
+            button.clicked.connect(
+                lambda checked=False, selected_button=button:
+                self._sync_favourite_action(selected_button)
+            )
+        self._sync_favourite_action()
+
+    def _current_file_tab_button(self):
+        return next(
+            (button for button in self._file_tab_buttons() if button.isChecked()),
+            None,
+        )
+
+    def _sync_favourite_action(self, button=None):
+        """Make the Tools command describe the selected tab's next action."""
+        button = button or self._current_file_tab_button()
+        favourite = bool(button and button.property("favourite"))
+        self.actionMark_as_favourite.setText(
+            "Mark/unmark as favourite"
+        )
+
+    def _toggle_current_file_favourite(self, checked=False):
+        button = self._current_file_tab_button()
+        if button is not None:
+            button.setFavourite(not button.isFavourite())
+            self._sync_favourite_action(button)
+
+    def set_file_button_favourite(self, index, favourite):
+        """Set the favourite state for FFS button *index* (0 through 4).
+
+        Call this after assigning a file to a visible button, using the
+        favourite state stored by the application's FFS-file/session model.
+        """
+        button = self._file_tab_buttons()[index]
+        button.setFavourite(favourite)
+        if button.isChecked():
+            self._sync_favourite_action(button)
+
+    def file_button_is_favourite(self, index):
+        """Return whether visible FFS button *index* is marked favourite."""
+        return self._file_tab_buttons()[index].isFavourite()
 
     def apply_professional_style(self, MainWindow):
         """Apply a modern visual theme without changing widget behavior."""
@@ -2437,6 +2537,7 @@ class Ui_MainWindow(object):
         self.actionCreate_Jupyter_Notebook.setText(_translate("MainWindow", "Create Jupyter Notebook"))
         self.actionCopy_current_correlation.setText(_translate("MainWindow", "Copy current correlation"))
         self.actionCopy_current_correlation.setShortcut(_translate("MainWindow", "Ctrl+C"))
+        self.actionMark_as_favourite.setText(_translate("MainWindow", "Mark as favourite"))
         self.actionFilter_out_bad_chunks.setText(_translate("MainWindow", "Filter out bad chunks"))
         self.actionFilter_out_bad_chunks.setShortcut(_translate("MainWindow", "Ctrl+F"))
         self.actionCurrent_Image.setText(_translate("MainWindow", "Current Image"))
