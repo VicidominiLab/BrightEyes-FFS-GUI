@@ -167,26 +167,26 @@ class _FileTabButton(QtWidgets.QPushButton):
         favourite = bool(self.property("favourite"))
 
         if favourite:
-            # A warm gold gradient makes bookmarked FFS files stand out while
-            # still allowing the checked state to identify the active file.
+            # A light gold gradient marks favourites without the stronger
+            # orange contrast used by the earlier version.
             if active:
                 gradient = QtGui.QLinearGradient(rect.topLeft(), rect.bottomRight())
-                gradient.setColorAt(0.0, QtGui.QColor('#f59e0b'))
-                gradient.setColorAt(1.0, QtGui.QColor('#ea580c'))
+                gradient.setColorAt(0.0, QtGui.QColor('#fcd34d'))
+                gradient.setColorAt(1.0, QtGui.QColor('#f59e0b'))
                 background = gradient
-                border = '#c2410c'
-                foreground = '#ffffff'
+                border = '#d97706'
+                foreground = '#78350f'
             else:
                 gradient = QtGui.QLinearGradient(rect.topLeft(), rect.bottomRight())
-                gradient.setColorAt(0.0, QtGui.QColor('#fff7d6'))
-                gradient.setColorAt(1.0, QtGui.QColor('#fed7aa'))
+                gradient.setColorAt(0.0, QtGui.QColor('#fffdf2'))
+                gradient.setColorAt(1.0, QtGui.QColor('#fef3c7'))
                 background = gradient
                 border = '#f59e0b'
-                foreground = '#9a3412'
+                foreground = '#92400e'
             if pressed:
-                border = '#9a3412'
-            elif hovered:
                 border = '#d97706'
+            elif hovered:
+                border = '#fbbf24'
         elif active:
             background = '#4f46e5'
             border = '#4f46e5'

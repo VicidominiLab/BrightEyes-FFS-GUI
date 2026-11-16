@@ -1135,7 +1135,8 @@ def open_ffs_file(self, buttonNr, filepath=None):
             currentFile.add_analysis(mode=get_correlation_object_from_name('Curve from file'))
             G = Correlations()
             Gtemp = csv2array(fname, dlmt=-1)
-            G.add_corr_chunks(Gtemp[np.newaxis, :, :])
+            G.add_corr_chunks('det0_averageX', Gtemp[np.newaxis, :, :])
+            G.list_of_g_out.append('det0_averageX')
             self.data = np.zeros((100,25))
             analysis = currentFile.get_analysis()
             analysis.update(corrs = G)
@@ -1440,8 +1441,6 @@ def perform_fit(self, updateAll=False):
         for f in range(len(allfits)):
             # get data
             fit = allfits[f]
-            print('good chunks')
-            print(analysis.corrs.good_chunks)
             G = analysis.get_corr(fit.data).average(analysis.corrs.good_chunks)
 
             r = fit.fitrange
@@ -1458,7 +1457,6 @@ def perform_fit(self, updateAll=False):
 
             minb = fit.minbound
 
-            print(startv)
             maxb = fit.maxbound
             param_factors10 = fit.param_factors10
             stop = np.min((r[1], len(G)))
