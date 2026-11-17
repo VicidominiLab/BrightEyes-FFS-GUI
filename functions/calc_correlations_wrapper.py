@@ -15,7 +15,7 @@ def calc_g_wrapper(self, file, anSettings):
             # -------------------- PCH intensity trace --------------------
             [G, data] = fcs_load_and_corr_split(file.fname,
                                             list_of_g=anSettings.list_of_g,
-                                            accuracy=30,
+                                            accuracy=50,
                                             binsize=anSettings.resolution,
                                             split=anSettings.chunksize,
                                             time_trace=True,
@@ -34,8 +34,8 @@ def calc_g_wrapper(self, file, anSettings):
                               list_of_pch_out=anSettings.elements,
                               sysclk_MHz=240,
                               perform_calib=False,
-                              max_k=30)
-            
+                              max_k=50)
+
             raw_data = load_atimes_data(file.fname, channels='auto', perform_calib=False)
             file.metadata.duration = atimes_data_2_duration(raw_data, macrotime=raw_data.macrotime, subtract_start_time=False)
         

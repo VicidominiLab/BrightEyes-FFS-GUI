@@ -760,7 +760,7 @@ def update_analysis(self, file):
                         ymin = np.min((ymin, np.min(y)))
                         ymax = 1.1*np.max((ymax, np.max(y)))
 
-                        scatter_handle, = self.ui.correlations_widget.canvas.axes.scatter(x, y,label=element, s=15, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
+                        scatter_handle = self.ui.correlations_widget.canvas.axes.scatter(x, y,label=element, s=15, color=color_from_map(np.mod(plotcolor, len(elements)), startv=0, stopv=len(elements)+1, cmap='gist_earth'))
                         self.ui.correlations_widget.register_curve(element, scatter_handle)
 
                         self.current_corrs.append(np.column_stack((x, y)))
